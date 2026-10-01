@@ -10,6 +10,7 @@ dependencies:
   flame: ^1.38.2
   flutter:
     sdk: flutter
+  flutter_soloud: ^5.1.5
   forge2d: ^0.15.1
   shared_preferences: ^2.5.5
 

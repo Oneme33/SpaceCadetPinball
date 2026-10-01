@@ -71,9 +71,14 @@ class WallPolygon extends WallShape {
 
 /// Surface material. Defaults are the original's (`loader::default_vsi`).
 class Material {
-  const Material({this.smoothness = 0.95, this.elasticity = 0.6});
+  const Material({
+    this.smoothness = 0.95,
+    this.elasticity = 0.6,
+    this.softHitSound,
+  });
   final double smoothness;
   final double elasticity;
+  final int? softHitSound;
 }
 
 /// Kicker parameters: what a component does to the ball on a hard hit.
@@ -84,7 +89,9 @@ class Kicker {
     this.throwBallMult,
     this.throwBallAngleMult,
     this.throwBallDirection,
+    this.hardHitSound,
   });
+  final int? hardHitSound;
   final double threshold;
   final double boost;
   final double? throwBallMult;
@@ -102,9 +109,18 @@ class VisualState {
     this.material = const Material(),
     this.kicker = const Kicker(),
     this.collisionMask = 1,
+    this.softHitSound,
+    this.hardHitSound,
+    this.sound4,
+    this.sound3,
   });
 
   final int group;
+
+  /// Sound record groups (see [PinballData.soundFiles]), as `visualStruct`:
+  /// soft hit (304), hard hit (406), and the two component-specific sounds
+  /// `SoundIndex4` (1100) and `SoundIndex3` (1101).
+  final int? softHitSound, hardHitSound, sound4, sound3;
   final Bitmap8? bitmap;
   final ZMap? zMap;
   final List<WallShape> walls;
@@ -130,6 +146,11 @@ class Component {
   /// Float attributes of the first state, by code, without the code
   /// itself (e.g. 407 = timer, 601 = ball position, 1300 = ramp planes).
   final Map<int, List<double>> attributes;
+}
+
+class ScoreField {
+  const ScoreField(this.digitGroup, this.x, this.y, this.width, this.height);
+  final int digitGroup, x, y, width, height;
 }
 
 /// The perspective camera from `camera_info` plus the projection centre
@@ -176,6 +197,38 @@ class PinballData {
   }();
 
   late final int tableGroup = dat.indexOf('table');
+
+  /// Sound records (ShortValue 202): group index → WAV file name. One
+  /// record is a "..." placeholder without a file; it is left out.
+  late final Map<int, String> soundFiles = {
+    for (final g in dat.groups)
+      if (g.field(DatFieldType.shortValue)?.shortValue == 202)
+        if (g.field(DatFieldType.string)?.text case final name?
+            when name.toUpperCase().endsWith('.WAV'))
+          g.index: name.toUpperCase(),
+  };
+
+  /// A score field (`score::create`): the first of its ten digit bitmap
+  /// groups and its box on the screen, right-aligned.
+  ScoreField? scoreField(String name) {
+    final a = dat.byName(name)?.field(DatFieldType.shortArray)?.shorts;
+    if (a == null || a.length < 5) return null;
+    return ScoreField(a[0], a[1], a[2], a[3], a[4]);
+  }
+
+  /// A message box (`TTextBox`, attribute 1500): x, y, width, height.
+  (int, int, int, int)? textBoxRect(String name) {
+    final g = dat.byName(name);
+    if (g == null) return null;
+    for (final e in g.fields(DatFieldType.shortArray)) {
+      final a = e.shorts;
+      if (a.length >= 5 && a[0] == 1500) return (a[1], a[2], a[3], a[4]);
+    }
+    return null;
+  }
+
+  /// Table-wide sounds: game start, game over, tilt (`TTableLayer`).
+  late final VisualState tableVisual = _state(tableGroup, 0);
 
   /// Playfield sprite, drawn at screen (0, 0).
   late final Bitmap8 tableBitmap = bitmap(tableGroup)!;
@@ -271,6 +324,7 @@ class PinballData {
     var material = const Material();
     var kicker = const Kicker();
     var mask = 0;
+    int? soft, hard, s4, s3;
     final shorts = dat.groups[g].field(DatFieldType.shortArray)?.shorts;
     if (shorts != null) {
       for (var i = 0; i + 1 < shorts.length;) {
@@ -278,10 +332,20 @@ class PinballData {
         switch (code) {
           case 300:
             material = _material(value);
+            soft = material.softHitSound ?? soft;
+          case 304:
+            soft = value;
           case 400:
             kicker = _kicker(value);
+            hard = kicker.hardHitSound ?? hard;
+          case 406:
+            hard = value;
           case 602:
             mask |= 1 << value;
+          case 1100:
+            s4 = value;
+          case 1101:
+            s3 = value;
           case 1500:
             i += 7;
         }
@@ -297,11 +361,16 @@ class PinballData {
       material: material,
       kicker: kicker,
       collisionMask: mask == 0 ? 1 : mask,
+      softHitSound: soft,
+      hardHitSound: hard,
+      sound4: s4,
+      sound3: s3,
     );
   }
 
   Material _material(int group) {
     var smoothness = 0.95, elasticity = 0.6;
+    int? sound;
     final f = dat.groups[group].field(DatFieldType.floatArray)?.floats;
     if (f != null) {
       for (var i = 0; i + 1 < f.length; i += 2) {
@@ -310,16 +379,23 @@ class PinballData {
             smoothness = f[i + 1];
           case 302:
             elasticity = f[i + 1];
+          case 304:
+            sound = f[i + 1].floor();
         }
       }
     }
-    return Material(smoothness: smoothness, elasticity: elasticity);
+    return Material(
+      smoothness: smoothness,
+      elasticity: elasticity,
+      softHitSound: sound,
+    );
   }
 
   Kicker _kicker(int group) {
     var threshold = 9e10, boost = 0.0;
     double? throwMult, angleMult;
     (double, double, double)? direction;
+    int? sound;
     final f = dat.groups[group].field(DatFieldType.floatArray)?.floats;
     if (f != null) {
       for (var i = 0; i < f.length;) {
@@ -339,6 +415,8 @@ class PinballData {
             throwMult = v;
           case 405:
             angleMult = v;
+          case 406:
+            sound = v.floor();
         }
         i += 2;
       }
@@ -349,6 +427,7 @@ class PinballData {
       throwBallMult: throwMult,
       throwBallAngleMult: angleMult,
       throwBallDirection: direction,
+      hardHitSound: sound,
     );
   }
 

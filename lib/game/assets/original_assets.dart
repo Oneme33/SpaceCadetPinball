@@ -26,6 +26,25 @@ class OriginalAssets {
   final List<BallSprite> ballSprites;
 
   final Map<int, List<SpriteFrame?>> _frames = {};
+  final Map<int, List<Image>> _digits = {};
+
+  /// The ten digit bitmaps of a score field, 0–9.
+  Future<List<Image>> digits(ScoreField field) async {
+    final cached = _digits[field.digitGroup];
+    if (cached != null) return cached;
+    final images = await Future.wait([
+      for (var i = 0; i < 10; i++)
+        () {
+          final b = data.bitmap(field.digitGroup + i)!;
+          return ImageExtension.fromPixels(
+            b.toRgba(data.palette),
+            b.width,
+            b.height,
+          );
+        }(),
+    ]);
+    return _digits[field.digitGroup] = images;
+  }
 
   /// Screen-space sprite frames of a component, one per visual state
   /// (null where a state has no bitmap). Decoded once and cached.

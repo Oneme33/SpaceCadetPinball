@@ -46,6 +46,7 @@ class PartContext {
     required this.emit,
     required this.addBall,
     required this.removeBall,
+    required this.playSound,
   });
 
   final World world;
@@ -63,6 +64,9 @@ class PartContext {
 
   /// Removes a ball after the current step.
   final void Function(PinballBall ball) removeBall;
+
+  /// Plays a sound record (null: none).
+  final void Function(int? soundGroup) playSound;
 }
 
 /// A runtime table component: the counterpart of the original's
@@ -95,6 +99,8 @@ abstract class TablePart {
   void reset() {}
 
   void emit(PartEventKind kind) => ctx.emit(PartEvent(this, kind));
+
+  void sound(int? group) => ctx.playSound(group);
 
   /// `maths::basic_collision` with a kicker: on a hit at or above the
   /// threshold, the boost is added along the normal (on top of the

@@ -33,7 +33,11 @@ class _SpaceCadetAppState extends State<SpaceCadetApp> {
         // gesture-arena delay on the flippers.
         body: SafeArea(
           child: Listener(
-            onPointerDown: _game.handlePointer,
+            onPointerDown: (e) {
+              // Browsers only allow audio after a user gesture.
+              if (_game.isLoaded) _game.audio.start();
+              _game.handlePointer(e);
+            },
             onPointerUp: _game.handlePointer,
             onPointerCancel: _game.handlePointer,
             child: GameWidget<SpaceCadetGame>(

@@ -34,6 +34,7 @@ class RolloverPart extends TablePart {
     if (inside && _inside.add(ball)) {
       frame = isLight ? 0 : -1;
       if (_lightTimer case final t?) ctx.timers.cancel(t);
+      sound(visual.softHitSound);
       emit(PartEventKind.collision);
     } else if (!inside && _inside.remove(ball)) {
       if (isLight) {
@@ -70,7 +71,10 @@ class TripwirePart extends TablePart {
 
   @override
   void checkBall(PinballBall ball) {
-    if (_line.crossedBy(ball)) emit(PartEventKind.collision);
+    if (_line.crossedBy(ball)) {
+      sound(visual.softHitSound);
+      emit(PartEventKind.collision);
+    }
   }
 }
 
@@ -119,6 +123,7 @@ class SpinnerPart extends TablePart {
   void _nextFrame() {
     _timer = null;
     frame = (frame + _direction) % frames;
+    sound(visual.softHitSound);
     emit(PartEventKind.collision);
     if (frame == 0) emit(PartEventKind.spinnerLoopReset);
     _speed *= speedDecrement;
@@ -187,6 +192,7 @@ class KickoutPart extends TablePart {
     if (dx * dx + dy * dy > captureRadius * captureRadius) return;
     _held = ball;
     ball.capture(this, _circle.x, _circle.y, z: captureZ);
+    sound(visual.softHitSound);
     emit(PartEventKind.collision);
     ctx.timers.set(holdTime, eject);
   }
@@ -196,6 +202,7 @@ class KickoutPart extends TablePart {
     if (ball == null) return;
     _held = null;
     final v = TablePart.throwVelocity(visual.kicker, ctx.random);
+    sound(visual.hardHitSound);
     ball.release(v.x, v.y, z: ctx.ballRadius);
     active = false;
     ctx.timers.set(reactivateTime, () => active = lit);
@@ -238,12 +245,14 @@ class SinkPart extends TablePart {
   void checkBall(PinballBall ball) {
     if (!_line.crossedBy(ball)) return;
     ctx.removeBall(ball);
+    sound(visual.sound4);
     emit(PartEventKind.collision);
     ctx.timers.set(timerTime, eject);
   }
 
   void eject() {
     final ball = ctx.addBall(exitX, exitY);
+    sound(visual.sound3);
     final v = TablePart.throwVelocity(visual.kicker, ctx.random);
     ball.body.linearVelocity = v;
   }
@@ -296,6 +305,7 @@ class HolePart extends TablePart {
     if (dx * dx + dy * dy > captureRadius * captureRadius) return;
     _held = ball;
     ball.capture(this, _circle.x, _circle.y);
+    sound(visual.hardHitSound);
     emit(PartEventKind.ballCaptured);
     ctx.timers.set(holdTime, _drop);
   }
@@ -319,6 +329,7 @@ class HolePart extends TablePart {
       ..rampPlane = null
       ..layers = targetLayers
       ..release(0, 0, z: dropZ);
+    sound(visual.softHitSound);
     emit(PartEventKind.ballReleased);
   }
 }

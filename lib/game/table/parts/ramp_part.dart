@@ -131,7 +131,10 @@ class RampPart extends TablePart {
 
   @override
   void checkBall(PinballBall ball) {
-    if (_entry.crossedBy(ball)) emit(PartEventKind.collision);
+    if (_entry.crossedBy(ball)) {
+      sound(visual.softHitSound);
+      emit(PartEventKind.collision);
+    }
     for (final (line, layers, offset) in _exits) {
       if (_owns(ball) && line.crossedBy(ball)) {
         ball

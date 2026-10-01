@@ -10,6 +10,7 @@ import 'package:flutter/widgets.dart' show KeyEventResult;
 
 import '../dat/pinball_data.dart';
 import 'assets/original_assets.dart';
+import 'audio/audio_manager.dart';
 import 'debug/debug_layer.dart';
 import 'game_config.dart';
 import 'game_state.dart';
@@ -17,6 +18,8 @@ import 'gameplay/ball_manager.dart';
 import 'gameplay/game_timers.dart';
 import 'input/input_bindings.dart';
 import 'physics/physics_world.dart';
+import 'rules/control.dart';
+import 'rules/score_manager.dart';
 import 'table/ball_renderer.dart';
 import 'table/camera_projection.dart';
 import 'table/parts/part.dart';
@@ -27,6 +30,8 @@ import 'table/table_layout.dart';
 import 'table/table_projection.dart';
 import 'table/table_sprites.dart';
 import 'ui/debug_hud.dart';
+import 'ui/scoreboard.dart';
+import 'ui/text_box.dart';
 import 'ui/screen_layout.dart';
 
 /// Flame entry point. Wires input, state, physics and rendering together;
@@ -60,6 +65,18 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
   final InputState input = InputState();
   final BallManager ballManager = BallManager();
   final GameTimers timers = GameTimers();
+  final ScoreManager score = ScoreManager();
+  late final TextBox infoText = TextBox(
+    onTimerExpired: () => control.handleTextBoxExpired(infoText),
+  );
+  late final TextBox missionText = TextBox(
+    onTimerExpired: () => control.handleTextBoxExpired(missionText),
+  );
+  late final Control control;
+  late final AudioManager audio;
+
+  /// The score is shown once a game has been started.
+  bool _scoreShown = false;
 
   late final PhysicsWorld physics;
   late final TableLayout layout;
@@ -113,9 +130,17 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
       gravity: layout.gravity,
       maxSpeed: layout.ballMaxSpeed,
     );
+    audio = AudioManager(soundFiles: originals?.data.soundFiles ?? const {});
     table = SpaceCadetTable(physics, layout)
       ..onEvent = _onTableEvent
-      ..onPartEvent = _onPartEvent;
+      ..onPartEvent = _onPartEvent
+      ..playSound = audio.play;
+    control = Control(
+      table: table,
+      score: score,
+      info: infoText,
+      mission: missionText,
+    );
 
     if (originals != null) {
       world.add(TableArt(originals));
@@ -144,6 +169,7 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
         ..add(PlaceholderParts(table, projection));
     }
     world.add(BallsComponent(table, projection, ballRenderer));
+    await _addScoreboard(originals);
 
     if (GameConfig.debug) {
       final layer = _debugLayer = DebugLayer(
@@ -157,6 +183,39 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
     }
 
     gameState.handle(GameEvent.assetsLoaded);
+  }
+
+  Future<void> _addScoreboard(OriginalAssets? originals) async {
+    Future<DigitField?> digits(String name) async {
+      final field = originals?.data.scoreField(name);
+      if (originals == null || field == null) return null;
+      return DigitField(field, await originals.digits(field));
+    }
+
+    TextField? text(String name, TextBox box) {
+      final r = originals?.data.textBoxRect(name);
+      if (r == null) return null;
+      final (x, y, w, h) = r;
+      return TextField(
+        box,
+        Rect.fromLTWH(x.toDouble(), y.toDouble(), w.toDouble(), h.toDouble()),
+      );
+    }
+
+    world.add(
+      ScoreboardComponent(
+        score: await digits('score1'),
+        ballCount: await digits('ballcount1'),
+        playerNumber: await digits('player_number1'),
+        info: text('info_text_box', infoText),
+        mission: text('mission_text_box', missionText),
+        values: () => (
+          score: _scoreShown ? score.score : null,
+          ball: ballManager.ballNumber,
+          player: _scoreShown ? 1 : null,
+        ),
+      ),
+    );
   }
 
   @override
@@ -189,7 +248,11 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
   @override
   void update(double dt) {
     super.update(dt);
-    if (gameState.isSimulating) timers.update(dt);
+    if (gameState.isSimulating) {
+      timers.update(dt);
+      infoText.update(dt);
+      missionText.update(dt);
+    }
     // In debug mode the table also runs outside a game, for testing.
     if (gameState.isSimulating || GameConfig.debug && !gameState.isPaused) {
       physics.advance(dt);
@@ -212,10 +275,16 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
       ..releaseControls()
       ..reset();
     ballManager.startGame();
+    score.reset();
+    _scoreShown = true;
+    infoText.clear();
+    missionText.clear();
+    audio.play(originals?.data.tableVisual.sound4);
     _feedBallSoon();
   }
 
   void _feedBallSoon() {
+    table.playFeedSound();
     timers.set(ballFeedDelay, () {
       if (table.balls.isEmpty) table.feedBall();
     });
@@ -239,7 +308,7 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
 
   void _onPartEvent(PartEvent e) {
     lastPartEvent = e;
-    // Phase 5: scoring; Phase 6: the original rules (control.cpp).
+    if (gameState.isSimulating) control.handle(e);
   }
 
   void _afterDrain() {
@@ -248,6 +317,7 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
       _feedBallSoon();
     } else {
       gameState.handle(GameEvent.noBallsLeft);
+      audio.play(originals?.data.tableVisual.sound3);
     }
   }
 
@@ -294,6 +364,8 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
   }
 
   void onActionPressed(GameAction action) {
+    // Browsers only allow audio after a user gesture.
+    audio.start();
     switch (action) {
       case GameAction.pause:
         togglePause();
@@ -308,7 +380,7 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
           );
         }
       case GameAction.plunger:
-        if (_controlsLive) table.plunger.press();
+        if (_controlsLive) table.pressPlunger();
     }
   }
 
@@ -321,7 +393,7 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
           pressed: false,
         );
       case GameAction.plunger:
-        table.plunger.release();
+        table.releasePlunger();
       case GameAction.pause:
       case GameAction.start:
         break;
@@ -381,6 +453,7 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
     if (to == GamePhase.paused || to == GamePhase.gameOver) {
       input.releaseAll();
       table.releaseControls();
+      audio.stopAll();
     }
     _overlay(pauseOverlay, to == GamePhase.paused);
     _overlay(attractOverlay, to == GamePhase.attract);

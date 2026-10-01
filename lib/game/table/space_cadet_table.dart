@@ -10,6 +10,7 @@ import '../physics/flipper.dart';
 import '../physics/physics_world.dart';
 import '../physics/plunger.dart';
 import '../physics/table_walls.dart';
+import 'parts/light_part.dart';
 import 'parts/part.dart';
 import 'parts/ramp_part.dart';
 import 'parts/sensor_parts.dart';
@@ -42,6 +43,7 @@ class SpaceCadetTable {
       emit: (e) => onPartEvent?.call(e),
       addBall: addBall,
       removeBall: _toRemove.add,
+      playSound: (g) => playSound?.call(g),
     );
     for (final c in layout.components) {
       final part = _createPart(c);
@@ -71,13 +73,43 @@ class SpaceCadetTable {
 
   void Function(TableEvent event)? onEvent;
   void Function(PartEvent event)? onPartEvent;
+  void Function(int? soundGroup)? playSound;
 
-  TablePart? part(String name) {
-    for (final p in parts) {
-      if (p.name == name) return p;
+  VisualState? _visualOf(ComponentType type) {
+    for (final c in layout.components) {
+      if (c.type == type && c.states.isNotEmpty) return c.states.first;
     }
     return null;
   }
+
+  late final VisualState? _leftFlipperVisual = _visualOf(
+    ComponentType.flipperLeft,
+  );
+  late final VisualState? _rightFlipperVisual = _visualOf(
+    ComponentType.flipperRight,
+  );
+  late final VisualState? _plungerVisual = _visualOf(ComponentType.plunger);
+
+  /// `PlungerStartFeedTimer`'s sound, played when a ball is on its way.
+  void playFeedSound() => playSound?.call(_plungerVisual?.sound4);
+
+  void pressPlunger() {
+    if (!plunger.pulling) playSound?.call(_plungerVisual?.hardHitSound);
+    plunger.press();
+  }
+
+  void releasePlunger() {
+    if (plunger.pulling) playSound?.call(_plungerVisual?.sound3);
+    plunger.release();
+  }
+
+  late final Map<String, TablePart> _byName = {
+    for (final p in parts) p.name: p,
+  };
+
+  TablePart? part(String name) => _byName[name];
+
+  LightPart? light(String name) => _byName[name] as LightPart?;
 
   TablePart? _createPart(Component c) {
     final walls = c.states.isEmpty ? const <WallShape>[] : c.states.first.walls;
@@ -117,6 +149,7 @@ class SpaceCadetTable {
         ComponentType.sink when has<WallLine>() => SinkPart(_ctx, c),
         ComponentType.hole when has<WallCircle>() => HolePart(_ctx, c),
         ComponentType.ramp => RampPart(_ctx, c),
+        ComponentType.light => LightPart(_ctx, c),
         _ => null,
       };
     } on Object catch (e) {
@@ -127,7 +160,13 @@ class SpaceCadetTable {
 
   void setFlipper({required bool left, required bool pressed}) {
     final f = left ? leftFlipper : rightFlipper;
-    if (pressed && !f.pressed) onEvent?.call(TableEvent.flipperUp);
+    final visual = left ? _leftFlipperVisual : _rightFlipperVisual;
+    if (pressed && !f.pressed) {
+      playSound?.call(visual?.sound4);
+      onEvent?.call(TableEvent.flipperUp);
+    } else if (!pressed && f.pressed) {
+      playSound?.call(visual?.sound3);
+    }
     f.pressed = pressed;
   }
 

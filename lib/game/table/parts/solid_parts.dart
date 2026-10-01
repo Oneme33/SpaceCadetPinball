@@ -34,9 +34,23 @@ abstract class SolidPart extends TablePart {
 
   dat.Kicker get kicker => visual.kicker;
 
-  /// `DefaultCollision`: kick when hit hard enough.
-  bool defaultCollision(PinballBall ball, double speed, Vector2 normal) =>
-      TablePart.kick(ball, speed, normal, kicker.threshold, kicker.boost);
+  /// `DefaultCollision`: kick when hit hard enough, with the hard hit
+  /// sound; a softer hit above 0.2 plays the soft hit sound.
+  bool defaultCollision(PinballBall ball, double speed, Vector2 normal) {
+    final kicked = TablePart.kick(
+      ball,
+      speed,
+      normal,
+      kicker.threshold,
+      kicker.boost,
+    );
+    if (kicked) {
+      sound(visual.hardHitSound);
+    } else if (speed > 0.2) {
+      sound(visual.softHitSound);
+    }
+    return kicked;
+  }
 }
 
 /// `TWall`: plain walls, and the slingshots (`v_rebo`), which have a kicker
@@ -70,7 +84,12 @@ class BumperPart extends SolidPart {
 
   @override
   void onHit(PinballBall ball, double approachSpeed, Vector2 normal) {
-    if (_lit || !defaultCollision(ball, approachSpeed, normal)) return;
+    if (_lit) {
+      // Threshold is out of reach while lit (TBumper::Fire).
+      if (approachSpeed > 0.2) sound(visual.softHitSound);
+      return;
+    }
+    if (!defaultCollision(ball, approachSpeed, normal)) return;
     _lit = true;
     frame = 2 * bmpIndex + 1;
     ctx.timers.set(timerTime, () {
@@ -111,6 +130,7 @@ class PopupTargetPart extends SolidPart {
     // basic_collision(...) > Threshold: strictly above.
     if (approachSpeed <= kicker.threshold) return;
     TablePart.kick(ball, approachSpeed, normal, kicker.threshold, kicker.boost);
+    sound(visual.hardHitSound);
     drop();
     emit(PartEventKind.collision);
   }
@@ -122,7 +142,10 @@ class PopupTargetPart extends SolidPart {
 
   /// `TPopupTargetEnable`.
   void raise() {
-    _raiseTimer = ctx.timers.set(timerTime, _up);
+    _raiseTimer = ctx.timers.set(timerTime, () {
+      _up();
+      sound(visual.softHitSound);
+    });
   }
 
   void _up() {
@@ -166,15 +189,21 @@ class GatePart extends SolidPart {
   void open() {
     active = false;
     frame = -1;
+    sound(visual.sound3);
   }
 
   void close() {
+    _close();
+    sound(visual.sound4);
+  }
+
+  void _close() {
     active = true;
     frame = 0;
   }
 
   @override
-  void reset() => close();
+  void reset() => _close();
 }
 
 /// `TBlocker`: the centre post between the flippers. Off until the rules
@@ -189,6 +218,7 @@ class BlockerPart extends SolidPart {
   void raise({double? seconds}) {
     active = true;
     frame = 0;
+    sound(visual.sound4);
     _cancel();
     if (seconds != null) {
       _timer = ctx.timers.set(seconds, () {
@@ -199,6 +229,11 @@ class BlockerPart extends SolidPart {
   }
 
   void lower() {
+    if (active) sound(visual.sound3);
+    _lower();
+  }
+
+  void _lower() {
     _cancel();
     active = false;
     frame = -1;
@@ -210,7 +245,7 @@ class BlockerPart extends SolidPart {
   }
 
   @override
-  void reset() => lower();
+  void reset() => _lower();
 }
 
 /// `TKickback`: a floor at the bottom of an outlane. A ball that lands on
@@ -247,7 +282,10 @@ class KickbackPart extends SolidPart {
         kicked = true;
       }
     }
-    if (kicked) frame = 1;
+    if (kicked) {
+      frame = 1;
+      sound(visual.hardHitSound);
+    }
     ctx.timers.set(timerTime2, () {
       frame = 0;
       _armed = false;
@@ -293,7 +331,10 @@ class OnewayPart extends SolidPart {
 
   @override
   void checkBall(PinballBall ball) {
-    if (_pass.crossedBy(ball)) emit(PartEventKind.collision);
+    if (_pass.crossedBy(ball)) {
+      sound(visual.hardHitSound);
+      emit(PartEventKind.collision);
+    }
   }
 
   @override

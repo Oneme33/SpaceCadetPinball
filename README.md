@@ -65,7 +65,11 @@ lib/
     game_config.dart            coordinate spaces, timing, debug flag
     game_state.dart             pure state machine (loading → attract → playing ⇄ paused → ballLost → gameOver)
     input/input_bindings.dart   key bindings, multi-source held state
-    gameplay/                   pure Dart rules: ball count, game timers
+    gameplay/                   pure Dart: ball count, game timers
+    rules/
+      score_manager.dart        AddScore: multipliers 1/2/3/5/10, jackpot, bonus
+      control.dart              control.cpp, ported function by function
+    audio/audio_manager.dart    original WAVs via flutter_soloud, 8 voices
     physics/
       physics_world.dart        Box2D world in table space, before/after-step hooks
       fixed_step.dart           frame-rate independent fixed step (240 Hz)
@@ -82,6 +86,7 @@ lib/
                                 centre post, kickbacks, one-way walls
         sensor_parts.dart       rollovers, tripwires, spinners, kickouts, wormholes, ramp hole
         ramp_part.dart          ramps: planes, slope gravity, layer changes, ball height
+        light_part.dart         TLight: on/off, timed, flashing (900/901)
       table_layout.dart         element map in table space
       table_sprites.dart        component sprites, balls, placeholder parts
       table_projection.dart     table space → screen space (interface + flat fallback)
@@ -90,7 +95,8 @@ lib/
       ball_renderer.dart        ball sprite by depth, z-buffered against the table depth map
       placeholder_table.dart    labelled stand-in without originals
     debug/debug_layer.dart      collision shapes, click-to-spawn
-    ui/                         screen layout, debug HUD, Flutter overlays
+    ui/                         screen layout, scoreboard (original digits), message
+                                boxes (TTextBox queue), debug HUD, Flutter overlays
 docs/
   TABLE_ANALYSIS.md             what PINBALL.DAT contains and how we use it
   ELEMENT_MAP.md                generated: every component with position and physics
@@ -135,6 +141,23 @@ Every part reports to the rules what the original reports to
 spinner loop). The rules themselves are Phase 6; until then parts use
 their own defaults.
 
+### Scoreboard, sound and lights (Phase 5)
+
+- Score, ball and player number use the original digit sprites
+  (`score1`, `ballcount1`, `player_number1`); `FONT.DAT` holds the same
+  ten digits.
+- Message boxes follow `TTextBox`'s queue. 3D Pinball drew their text
+  with the Windows system font in white; that font is not part of the game
+  files, so a plain sans-serif stands in (TODO: verify size and face).
+- Every sound comes from the DAT's own references: hard/soft hit sounds
+  per component, flipper up/down, plunger pull/release/feed, game start and
+  game over. Sounds start on the first key or touch (browser rule).
+- Your copy of the game lacks six referenced WAVs (SOUND2, 37, 44, 52, 59,
+  62: e.g. game over and the plunger pull). They stay silent; nothing is
+  substituted.
+- All 140 lights work as `TLight` (on/off, timed, flashing). What lights
+  them is the rules' job: so far only the slingshot lights.
+
 ### Open points to check against the original
 
 - Kickouts hold the ball for their default 1.5 s; the rules set this per
@@ -155,7 +178,7 @@ their own defaults.
 | 2 | DAT parser, table art, camera projection, element map | done |
 | 3 | Ball, walls, drain, flippers, plunger — first playable | done |
 | 4 | Bumpers, slingshots, lanes, targets, ramps, sensors | done |
-| 5 | Scoring, scoreboard, sound, lights | next |
-| 6 | Space Cadet rules and missions | |
+| 5 | Scoring, scoreboard, sound, lights | done |
+| 6 | Space Cadet rules and missions | next |
 | 7 | Animation, haptics, mobile controls | |
 | 8 | Tuning against the original | |
