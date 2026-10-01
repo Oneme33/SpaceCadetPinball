@@ -19,9 +19,11 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
   flame_test: ^2.3.1
+  image: ^4.10.1
 
 flutter:
   uses-material-design: true
 
   assets:
     - assets/original/
+    - assets/original/hd/

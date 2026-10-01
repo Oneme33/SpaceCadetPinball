@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' show Offset, Rect;
 
 import 'package:flutter/foundation.dart';
 import 'package:forge2d/forge2d.dart' show Vector2;
@@ -16,6 +17,8 @@ import 'parts/part.dart';
 import 'parts/ramp_part.dart';
 import 'parts/sensor_parts.dart';
 import 'parts/table_proxies.dart';
+import 'stuck_ball.dart';
+import '../rules/message_code.dart';
 import 'parts/solid_parts.dart';
 import 'table_layout.dart';
 
@@ -48,6 +51,8 @@ class SpaceCadetTable {
       playSound: (g) => playSound?.call(g),
       soundDuration: (g) => soundDuration?.call(g) ?? -1,
       partByGroup: (g) => _byGroup[g],
+      tilted: () => tilted,
+      drainBall: (b) => _toDrain.add(b),
     );
     for (final c in layout.components) {
       final part = _createPart(c);
@@ -113,9 +118,12 @@ class SpaceCadetTable {
 
   math.Random get random => _random;
 
-  /// Plays the game start or game over sound; returns its length.
-  double playTableSound({required bool start}) {
-    final g = start ? startSound : gameOverSound;
+  /// Sound record of the table for a tilt.
+  int? tiltSound;
+
+  /// Plays the game start, game over or tilt sound; returns its length.
+  double playTableSound({bool start = false, bool tilt = false}) {
+    final g = tilt ? tiltSound : (start ? startSound : gameOverSound);
     playSound?.call(g);
     return g == null ? -1 : (soundDuration?.call(g) ?? -1);
   }
@@ -131,11 +139,54 @@ class SpaceCadetTable {
   final GameTimers timers = GameTimers();
 
   final Set<PinballBall> _toRemove = {};
+  final Set<PinballBall> _toDrain = {};
+
+  /// `TPinballTable::TiltLockFlag`, set by the rules.
+  bool tilted = false;
+
+  /// Adds (dx, dy) to the velocity of every ball in play (a table bump).
+  void pushBalls(double dx, double dy) {
+    for (final b in balls) {
+      if (b.isCaptured) continue;
+      b.body.linearVelocity = b.body.linearVelocity + Vector2(dx, dy);
+    }
+  }
+
+  /// `tilt_timeout`: every ball goes down the drain.
+  void drainAll() => _toDrain.addAll(balls);
+
+  double _time = 0;
+  double _nextStuckCheck = 0;
+
+  late final StuckBallGuard stuck = StuckBallGuard(
+    random: _random,
+    restAreas: [
+      for (final f in [layout.leftFlipper, layout.rightFlipper])
+        Rect.fromPoints(
+          Offset(f.originX, f.originY),
+          Offset(f.restTipX, f.extendedTipY),
+        ).inflate(f.baseRadius),
+      Rect.fromLTRB(
+        layout.plunger.x1,
+        layout.plunger.feedY - layout.ballRadius,
+        layout.plunger.x2,
+        layout.plunger.y1,
+      ),
+    ],
+    relaunch: (b) {
+      _toRemove.add(b);
+      if (multiballCount > 0) multiballCount--;
+      plungerPart.message(MC.plungerRelaunchBall, 0);
+    },
+  );
   final Map<(TablePart, PinballBall), (double, Vector2)> _hits = {};
 
   void Function(TableEvent event)? onEvent;
   void Function(PartEvent event)? onPartEvent;
   void Function(int? soundGroup)? playSound;
+
+  /// A ball hit a flipper, with the approach speed (for haptics).
+  void Function(double speed)? onFlipperHit;
   double Function(int? soundGroup)? soundDuration;
 
   VisualState? _visualOf(ComponentType type) {
@@ -169,6 +220,7 @@ class SpaceCadetTable {
   late final Map<String, TablePart> _byName = {
     for (final p in parts) p.name: p,
   };
+
   /// Parts with a field effect, and parts that watch the ball (sensors,
   /// trigger lines): the only ones visited every physics step.
   late final List<TablePart> _fieldParts = [
@@ -322,6 +374,10 @@ class SpaceCadetTable {
     _hits.clear();
     for (final hit in physics.world.contactEvents.hit) {
       final a = hit.shapeA.body.userData, b = hit.shapeB.body.userData;
+      if (a is Flipper || b is Flipper) {
+        onFlipperHit?.call(hit.approachSpeed);
+        continue;
+      }
       final (TablePart, PinballBall, Vector2)? h = switch ((a, b)) {
         (final TablePart p, final PinballBall ball) => (p, ball, hit.normal),
         (final PinballBall ball, final TablePart p) => (p, ball, -hit.normal),
@@ -348,6 +404,21 @@ class SpaceCadetTable {
     _flushRemovals();
     timers.update(dt);
     _flushRemovals();
+    for (final b in _toDrain) {
+      if (!balls.remove(b)) continue;
+      if (b.isCaptured) b.capturedBy = null;
+      b.destroy();
+      onEvent?.call(TableEvent.ballDrained);
+      drainPart.ballDrained();
+    }
+    _toDrain.clear();
+
+    _time += dt;
+    if (_time >= _nextStuckCheck) {
+      _nextStuckCheck = _time + 1 / 60;
+      stuck.check(balls, _time);
+      _flushRemovals();
+    }
 
     for (var i = balls.length - 1; i >= 0; i--) {
       final b = balls[i];

@@ -192,6 +192,10 @@ class KickoutPart extends TablePart {
     if (dx * dx + dy * dy > captureRadius * captureRadius) return;
     _held = ball;
     ball.capture(this, _circle.x, _circle.y, z: captureZ);
+    if (ctx.tilted()) {
+      message(MC.tKickoutRestartTimer, 0.1);
+      return;
+    }
     sound(visual.softHitSound);
     emit(MC.controlCollision);
   }
@@ -270,6 +274,10 @@ class SinkPart extends TablePart {
   @override
   void checkBall(PinballBall ball) {
     if (!_line.crossedBy(ball)) return;
+    if (ctx.tilted()) {
+      ctx.drainBall(ball);
+      return;
+    }
     ctx.removeBall(ball);
     sound(visual.sound4);
     emit(MC.controlCollision);

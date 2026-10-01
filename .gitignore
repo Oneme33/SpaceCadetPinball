@@ -51,3 +51,6 @@ app.*.map.json
 /original/
 /assets/original/*
 !/assets/original/README.md
+!/assets/original/hd/
+/assets/original/hd/*
+!/assets/original/hd/README.md

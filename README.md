@@ -26,11 +26,33 @@ flutter analyze
 ```
 
 Controls: **Z / Left Shift** left flipper, **/ / Right Shift** right flipper,
-**Space** plunger, **Esc / P** pause, **F2 / Enter** start.
+**Space** plunger, **X / . / ↑** bump the table (left, right, front),
+**Esc / P** pause menu, **F2 / Enter** start.
 
 Touch: left or right half of the screen works that flipper (several fingers
 at once), the plunger lane pulls the plunger, the scoreboard is the menu
 button (pause).
+
+## HD graphics
+
+The pause menu switches between **Classic** (the original pixels) and
+**HD**: every bitmap of the DAT upscaled 4× with Real-ESRGAN
+(realesrgan-x4plus), drawn into exactly the same rectangles, so the game
+plays identically. Make the HD set from your installed originals:
+
+```bash
+dart run tool/make_hd.dart --esrgan path/to/realesrgan-ncnn-vulkan
+```
+
+Real-ESRGAN comes from https://github.com/xinntao/Real-ESRGAN (release
+v0.2.5.0, `realesrgan-ncnn-vulkan` for your platform). The result lands in
+`assets/original/hd/` and, like the originals, stays out of git.
+
+## Pause menu and settings
+
+Esc, P or a tap on the scoreboard opens it: resume, new game, graphics
+(Classic/HD), sound on/off and, on phones, haptics on/off. Settings and the
+high score table are kept between sessions.
 
 ## Screen layout
 
@@ -185,8 +207,22 @@ re-deploy, shoot again, next ball or game over.
 Messages come from the user's own Pinball.exe (`STRINGnnn` = resource id
 nnn − 101), extracted by the install tool.
 
-Not yet: tilt (nudging), high scores, more than one player, music (MIDI),
-the stuck-ball rescue (`UnstuckBall`) and the attract-mode demo.
+### Phase 7
+
+- **Tilt**: bumping the table as `nudge.cpp` (±1, 0.5 velocity, a 2 px
+  view shift, undone after 0.4 s); "Danger" above 0.5, TILT above 1:
+  flippers dead, no kicks or scoring, wormholes drain, all balls drain
+  after 30 s.
+- **Stuck ball**: the original rescue (`UnstuckBall`): small random pushes,
+  relaunch after 20 checks; balls may rest by the flippers and plunger.
+- **High scores**: top five kept; game over shows them as the original's
+  `GameoverController` does. Names are not asked.
+- **Haptics** (phones): light for targets and rollovers, medium for
+  bumpers, slingshots and bumps, strong for flipper hits, launches and
+  special awards; rate-limited, never continuous.
+
+Not yet: more than one player, music (MIDI), the attract-mode demo, and
+bumping the table on touch screens.
 
 ### Open points to check against the original
 
@@ -204,5 +240,5 @@ the stuck-ball rescue (`UnstuckBall`) and the attract-mode demo.
 | 4 | Bumpers, slingshots, lanes, targets, ramps, sensors | done |
 | 5 | Scoring, scoreboard, sound, lights | done |
 | 6 | Space Cadet rules and missions | done |
-| 7 | Animation, haptics, mobile controls | next |
+| 7 | HD graphics, menu, haptics, tilt, high scores, stuck ball | done |
 | 8 | Tuning against the original | |

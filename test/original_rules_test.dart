@@ -32,6 +32,7 @@ void main() {
     late ScoreManager score;
     late TextBox info, mission;
     late int gameOvers;
+    var highScores = <int>[];
 
     setUp(() {
       final layout = TableLayout.fromData(
@@ -44,6 +45,7 @@ void main() {
       table = SpaceCadetTable(physics, layout, random: math.Random(7));
       score = ScoreManager();
       gameOvers = 0;
+      highScores = [];
       final strings = {
         for (final e in (jsonDecode(
           json.readAsStringSync(),
@@ -59,7 +61,11 @@ void main() {
         info: info,
         mission: mission,
         strings: strings,
-        hooks: RulesHooks(onGameOver: () => gameOvers++),
+        hooks: RulesHooks(
+          onGameOver: () => gameOvers++,
+          loadHighScores: () => highScores,
+          saveHighScores: (s) => highScores = s,
+        ),
         random: math.Random(7),
       );
       table.onPartEvent = (e) {
@@ -156,6 +162,27 @@ void main() {
       expect(info.text, 'Game Over');
       run(3.5);
       expect(gameOvers, 1);
+    });
+
+    test('a game over with a score enters the high score table', () {
+      newGame();
+      score.add(12345);
+      for (var i = 0; i < 3; i++) {
+        rules.lite200.message(MC.tLightResetAndTurnOff, 0);
+        drainNow();
+        run(3.5);
+      }
+      expect(highScores.first, greaterThanOrEqualTo(12345));
+      expect(highScores, hasLength(1));
+    });
+
+    test('the high score table keeps the best five', () {
+      highScores = [50000, 40000, 30000, 20000, 10000];
+      score.score = 25000;
+      expect(rules.checkHighScore(), isTrue);
+      expect(highScores, [50000, 40000, 30000, 25000, 20000]);
+      score.score = 5000;
+      expect(rules.checkHighScore(), isFalse);
     });
 
     test('a long game runs every rule without errors', () {

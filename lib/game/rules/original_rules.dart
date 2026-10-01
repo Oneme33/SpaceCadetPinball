@@ -54,16 +54,22 @@ class OriginalRules extends _RulesBase
 
 /// What the rules ask of the game around them.
 class RulesHooks {
-  const RulesHooks({this.onGameOver, this.onFeedBall, this.onDrainCollision});
+  const RulesHooks({
+    this.onGameOver,
+    this.onSpecialAward,
+    this.loadHighScores,
+    this.saveHighScores,
+  });
+
+  /// The high score table, best first (kept by the game's settings).
+  final List<int> Function()? loadHighScores;
+  final void Function(List<int> scores)? saveHighScores;
 
   /// `TPinballTable::Message(GameOver)` finished (after its 3 s).
   final void Function()? onGameOver;
 
-  /// The plunger feeds a new ball.
-  final void Function()? onFeedBall;
-
-  /// A ball went down the drain.
-  final void Function()? onDrainCollision;
+  /// Extra ball, replay or jackpot: a special award (for haptics).
+  final void Function()? onSpecialAward;
 }
 
 /// The table-level state the rules read and change (`TPinballTable`).
@@ -92,7 +98,9 @@ class TableState {
   int ballLockedCounter = 0;
   int reflexShotScore = 0;
   int extraBalls = 0;
-  bool tiltLockFlag = false;
+
+  bool get tiltLockFlag => _rules.table.tilted;
+  set tiltLockFlag(bool v) => _rules.table.tilted = v;
   int playerCount = 1;
   bool multiballFlag = false;
   int currentPlayer = 0;
@@ -101,7 +109,28 @@ class TableState {
   int cheatsUsed = 0;
   bool _replayActive = false;
 
-  int? _lightShowTimer, _endGameTimer, _replayTimer;
+  int? _lightShowTimer, _endGameTimer, _replayTimer, _tiltTimer;
+
+  /// `TPinballTable::tilt`: the table locks until the ball drains.
+  void tilt() {
+    final r = _rules;
+    if (tiltLockFlag || r.table.drainPart.waiting) return;
+    r.info.clear();
+    r.mission.clear();
+    r.info.display(r.rc(136), -1);
+    r.table.playTableSound(tilt: true);
+    if (_tiltTimer case final t?) r.timers.cancel(t);
+    _tiltTimer = r.timers.set(30, () {
+      _tiltTimer = null;
+      if (tiltLockFlag) r.table.drainAll();
+    });
+    for (final p in r.table.parts) {
+      p.message(MC.setTiltLock, 0);
+    }
+    lightGroup.message(MC.tLightTurnOffTimed, 0);
+    tiltLockFlag = true;
+    r.tableControlHandler(MC.setTiltLock);
+  }
 
   /// Every light on the table, for light shows (`TPinballTable::LightGroup`).
   late final AllLights lightGroup = AllLights(_rules.table);
@@ -111,8 +140,11 @@ class TableState {
   /// Single player: player 0 is the current score; others do not exist.
   int playerScore(int player) => player == 0 ? curScore : -1;
 
-  /// No high score table yet: nothing to show.
-  int highScore(int index) => 0;
+  /// `high_score::highscore_table[index].Score`: 0 when empty.
+  int highScore(int index) {
+    final scores = _rules.hooks.loadHighScores?.call() ?? const <int>[];
+    return index < scores.length ? scores[index] : 0;
+  }
 
   /// `TPinballTable::Message` for the codes the game flow uses.
   int message(int code, double value) {
@@ -121,7 +153,11 @@ class TableState {
       case MC.leftFlipperInputReleased:
       case MC.clearTiltLock:
         lightGroup.message(MC.tLightResetTimed, 0);
-        tiltLockFlag = false;
+        if (tiltLockFlag) {
+          tiltLockFlag = false;
+          if (_tiltTimer case final t?) r.timers.cancel(t);
+          _tiltTimer = null;
+        }
       case MC.startGamePlayer1:
         lightGroup
           ..message(MC.tLightGroupReset, 0)
@@ -330,9 +366,25 @@ abstract class _RulesBase {
   double randFloat() => _random.nextDouble();
   int randInt() => _random.nextInt(0x7FFF);
 
-  /// High scores are not kept yet.
-  /// TODO: VERIFY AGAINST ORIGINAL SPACE CADET — high score table (Phase 7).
-  bool checkHighScore() => false;
+  /// Places of the high score table (`high_score.cpp`).
+  static const highScoreCount = 5;
+
+  /// `pb::chk_highscore`: enters the current score in the table when it
+  /// makes the top five. The original then asks for a name; names are not
+  /// kept here.
+  bool checkHighScore() {
+    final current = score.score;
+    if (current <= 0) return false;
+    final scores = [...?hooks.loadHighScores?.call()];
+    if (scores.length >= highScoreCount && current <= scores.last) {
+      return false;
+    }
+    scores
+      ..add(current)
+      ..sort((a, b) => b.compareTo(a));
+    hooks.saveHighScores?.call(scores.take(highScoreCount).toList());
+    return true;
+  }
 
   void onGameOverMode() {}
 

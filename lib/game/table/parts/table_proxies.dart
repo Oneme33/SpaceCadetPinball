@@ -13,6 +13,9 @@ class DrainPart extends TablePart {
   final double timerTime;
   int? _timer;
 
+  /// Waiting to call the next ball (`BallInDrainFlag`).
+  bool get waiting => _timer != null;
+
   /// Set by the table: balls in play (`TPinballTable::MultiballCount`).
   late int Function() ballsInPlay;
   late void Function(int) setBallsInPlay;

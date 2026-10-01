@@ -25,6 +25,11 @@ This validates `PINBALL.DAT` and copies it, `FONT.DAT` and the WAVs into
 there is no conversion step and no generated art: bitmaps, depth maps,
 walls, materials and the camera all come straight from the file.
 
+HD graphics (optional) are made from the same originals with
+`dart run tool/make_hd.dart --esrgan <path>` into `assets/original/hd/`
+(git-ignored). They are derived from the original art and carry the same
+restrictions.
+
 **A web build bundles these files.** Never deploy a build made with the
 originals installed to a public host.
 

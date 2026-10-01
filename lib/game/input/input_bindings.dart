@@ -1,7 +1,18 @@
 import 'package:flutter/services.dart';
 
 /// What the player can do, independent of the device that does it.
-enum GameAction { leftFlipper, rightFlipper, plunger, pause, start }
+enum GameAction {
+  leftFlipper,
+  rightFlipper,
+  plunger,
+  pause,
+  start,
+
+  /// Bump the table from the left, the right or the front.
+  nudgeLeft,
+  nudgeRight,
+  nudgeBottom,
+}
 
 /// Desktop key bindings, as in the original.
 abstract final class InputBindings {
@@ -17,6 +28,10 @@ abstract final class InputBindings {
     LogicalKeyboardKey.keyP: GameAction.pause,
     LogicalKeyboardKey.f2: GameAction.start,
     LogicalKeyboardKey.enter: GameAction.start,
+    // The original's table bump keys.
+    LogicalKeyboardKey.keyX: GameAction.nudgeLeft,
+    LogicalKeyboardKey.period: GameAction.nudgeRight,
+    LogicalKeyboardKey.arrowUp: GameAction.nudgeBottom,
   };
 }
 

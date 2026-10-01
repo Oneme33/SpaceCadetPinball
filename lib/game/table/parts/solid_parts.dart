@@ -38,6 +38,8 @@ abstract class SolidPart extends TablePart {
   /// `DefaultCollision`: kick when hit hard enough, with the hard hit
   /// sound; a softer hit above 0.2 plays the soft hit sound.
   bool defaultCollision(PinballBall ball, double speed, Vector2 normal) {
+    // Tilted: a plain rebound, no kick, no sound.
+    if (ctx.tilted()) return false;
     final kicked = TablePart.kick(
       ball,
       speed,
@@ -157,7 +159,7 @@ class PopupTargetPart extends SolidPart {
   @override
   void onHit(PinballBall ball, double approachSpeed, Vector2 normal) {
     // basic_collision(...) > Threshold: strictly above.
-    if (approachSpeed <= kicker.threshold) return;
+    if (ctx.tilted() || approachSpeed <= kicker.threshold) return;
     TablePart.kick(ball, approachSpeed, normal, kicker.threshold, kicker.boost);
     sound(visual.hardHitSound);
     drop();

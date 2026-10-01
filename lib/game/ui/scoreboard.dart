@@ -4,6 +4,7 @@ import 'package:flame/components.dart';
 import 'package:flutter/painting.dart';
 
 import '../../dat/pinball_data.dart' show ScoreField;
+import '../graphics.dart';
 import 'text_box.dart';
 
 /// The scoreboard's live parts, drawn over the scoreboard art: score, ball
@@ -38,21 +39,26 @@ class ScoreboardComponent extends Component {
 
 /// Digits right-aligned in a box, as `score::update`.
 class DigitField {
-  DigitField(this.field, this.digits);
+  DigitField(this.field, this.digits, this.graphics);
 
   final ScoreField field;
   final List<Image> digits;
-
-  static final _paint = Paint()..filterQuality = FilterQuality.none;
+  final Graphics graphics;
 
   void render(Canvas canvas, int? value) {
     if (value == null || value < 0) return;
     var x = (field.x + field.width).toDouble();
     final text = value.toString();
     for (var i = text.length - 1; i >= 0; i--) {
-      final image = digits[text.codeUnitAt(i) - 0x30];
+      final d = text.codeUnitAt(i) - 0x30;
+      final image = digits[d];
       x -= image.width;
-      canvas.drawImage(image, Offset(x, field.y.toDouble()), _paint);
+      graphics.drawBitmap(
+        canvas,
+        image,
+        field.digitGroup + d,
+        Offset(x, field.y.toDouble()),
+      );
     }
   }
 }

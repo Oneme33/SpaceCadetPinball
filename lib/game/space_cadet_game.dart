@@ -13,8 +13,12 @@ import 'assets/original_assets.dart';
 import 'audio/audio_manager.dart';
 import 'debug/debug_layer.dart';
 import 'game_config.dart';
+import 'feedback/haptic_manager.dart';
 import 'game_state.dart';
+import 'graphics.dart';
+import 'settings.dart';
 import 'gameplay/game_timers.dart';
+import 'gameplay/nudge.dart';
 import 'input/input_bindings.dart';
 import 'physics/physics_world.dart';
 import 'rules/message_code.dart';
@@ -23,6 +27,9 @@ import 'rules/score_manager.dart';
 import 'table/ball_renderer.dart';
 import 'table/camera_projection.dart';
 import 'table/parts/light_part.dart';
+import 'table/parts/sensor_parts.dart';
+import 'table/parts/solid_parts.dart';
+import 'table/parts/table_proxies.dart';
 import 'table/parts/part.dart';
 import 'table/placeholder_table.dart';
 import 'table/space_cadet_table.dart';
@@ -92,6 +99,57 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
 
   /// Null when the original files are not installed.
   OriginalAssets? originals;
+
+  /// Classic or HD art.
+  final Graphics graphics = Graphics();
+
+  late final Settings settings;
+
+  /// Table bumps and the tilt counter.
+  late final Nudge nudge = Nudge(
+    push: (dx, dy) => table.pushBalls(dx, dy),
+    shift: (x, y) {
+      _shiftX += x;
+      _shiftY += y;
+      _applyLayout();
+    },
+  );
+  int _shiftX = 0, _shiftY = 0;
+  late final HapticManager haptics = HapticManager(
+    enabled: () => settings.haptics,
+  );
+
+  /// Whether the HD set has been made (tool/make_hd.dart): checked once at
+  /// load by looking for the playfield's HD bitmap.
+  bool hdInstalled = false;
+
+  void setSound(bool on) {
+    settings.sound = on;
+    audio.enabled = on;
+    if (!on) audio.stopAll();
+  }
+
+  /// "New Game" in the pause menu: the running game ends, a new one
+  /// starts.
+  void newGameFromMenu() {
+    gameState
+      ..handle(GameEvent.resume)
+      ..handle(GameEvent.ballDrained)
+      ..handle(GameEvent.noBallsLeft);
+    startGame();
+  }
+
+  /// Switches between classic and HD art, loading the HD set the first
+  /// time. Does nothing when the HD set is not installed.
+  Future<void> setHd(bool on) async {
+    settings.hd = on;
+    graphics.hdEnabled = on;
+    final o = originals;
+    if (on && !graphics.hdAvailable && o != null) {
+      graphics.hdImages = await o.loadHd();
+    }
+  }
+
   BallRenderer? ballRenderer;
   DebugLayer? _debugLayer;
 
@@ -103,6 +161,7 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
     add(scoreboardCamera);
     _applyLayout();
 
+    settings = await Settings.load();
     final originals = this.originals = await OriginalAssets.load();
     if (originals != null) {
       final camera = CameraProjection(originals.data.camera);
@@ -116,6 +175,8 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
         tableDepth: originals.tableDepth,
         zMin: originals.data.camera.zMin,
         zScaler: originals.data.camera.zScaler,
+        tableGroup: originals.data.tableGroup,
+        graphics: graphics,
       );
     } else {
       layout = TableLayout.placeholder();
@@ -135,22 +196,34 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
       ..playSound = audio.play
       ..soundDuration = ((g) => originals?.soundDurations[g] ?? -1)
       ..startSound = originals?.data.tableVisual.sound4
-      ..gameOverSound = originals?.data.tableVisual.sound3;
+      ..gameOverSound = originals?.data.tableVisual.sound3
+      ..tiltSound = originals?.data.tableVisual.hardHitSound;
     rules = OriginalRules(
       table: table,
       score: score,
       info: infoText,
       mission: missionText,
       strings: originals?.strings ?? const {},
-      hooks: RulesHooks(onGameOver: _gameOver),
+      hooks: RulesHooks(
+        onGameOver: _gameOver,
+        onSpecialAward: () => haptics.play(Haptic.heavy),
+        loadHighScores: () => settings.highScores,
+        saveHighScores: (s) => settings.highScores = s,
+      ),
     );
-    table.onPartEvent = _onPartEvent;
+    table
+      ..onPartEvent = _onPartEvent
+      ..onFlipperHit = (speed) {
+        if (speed > 6) haptics.play(Haptic.heavy);
+      };
 
     if (originals != null) {
-      world.add(TableArt(originals));
+      world.add(TableArt(originals, graphics));
       Future<void> sprite(ComponentType type, int Function(int) frame) async {
         final frames = await originals.framesFor(layout.ofType(type).first);
-        world.add(ComponentSprite(frames, () => frame(frames.length)));
+        world.add(
+          ComponentSprite(frames, () => frame(frames.length), graphics),
+        );
       }
 
       final withArt = [
@@ -162,7 +235,7 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
       ]);
       for (var i = 0; i < withArt.length; i++) {
         final p = withArt[i];
-        world.add(ComponentSprite(allFrames[i], () => p.frame));
+        world.add(ComponentSprite(allFrames[i], () => p.frame, graphics));
       }
       await sprite(ComponentType.plunger, (_) => table.plunger.frame);
       await sprite(ComponentType.flipperLeft, table.leftFlipper.frame);
@@ -186,6 +259,19 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
       camera.viewport.add(DebugHud(game: this, layer: layer));
     }
 
+    audio.enabled = settings.sound;
+    if (originals != null) {
+      try {
+        await rootBundle.load(
+          'assets/original/hd/g${originals.data.tableGroup}.png',
+        );
+        hdInstalled = true;
+      } on Object {
+        hdInstalled = false;
+      }
+    }
+    if (settings.hd && hdInstalled) await setHd(true);
+
     gameState.handle(GameEvent.assetsLoaded);
   }
 
@@ -193,7 +279,7 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
     Future<DigitField?> digits(String name) async {
       final field = originals?.data.scoreField(name);
       if (originals == null || field == null) return null;
-      return DigitField(field, await originals.digits(field));
+      return DigitField(field, await originals.digits(field), graphics);
     }
 
     TextField? text(String name, TextBox box) {
@@ -231,7 +317,12 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
 
   void _applyLayout() {
     final l = layoutOnScreen;
-    _aim(camera, l.tableView, l.tableSource);
+    // A table bump moves the board by a few pixels (`render::shift`).
+    _aim(
+      camera,
+      l.tableView,
+      l.tableSource.translate(-_shiftX * 1.0, -_shiftY * 1.0),
+    );
     _aim(scoreboardCamera, l.scoreboardView, l.scoreboardSource);
   }
 
@@ -256,6 +347,11 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
       timers.update(dt);
       infoText.update(dt);
       missionText.update(dt);
+      nudge.update(dt);
+      if (!rules.t.tiltLockFlag) {
+        if (nudge.count > Nudge.warnLevel) infoText.display(rules.rc(126), 2);
+        if (nudge.count > Nudge.tiltLevel) rules.t.tilt();
+      }
     }
     // In debug mode the table also runs outside a game, for testing.
     if (gameState.isSimulating || GameConfig.debug && !gameState.isPaused) {
@@ -297,9 +393,29 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
         if (table.balls.isEmpty) gameState.handle(GameEvent.ballDrained);
       case TableEvent.ballFed:
         gameState.handle(GameEvent.nextBallReady);
+        // `pb::tilt_no_more`.
+        if (rules.t.tiltLockFlag) infoText.clear();
+        rules.t.tiltLockFlag = false;
+        nudge.reset();
       case TableEvent.ballLaunched:
+        haptics.play(Haptic.heavy);
       case TableEvent.flipperUp:
-        // Phase 7: haptics.
+        break;
+    }
+  }
+
+  void _hapticFor(TablePart part) {
+    switch (part) {
+      case BumperPart():
+        haptics.play(Haptic.medium);
+      case WallPart() when part.visual.kicker.boost > 0:
+        haptics.play(Haptic.medium);
+      case PopupTargetPart() ||
+          SoloTargetPart() ||
+          RolloverPart() ||
+          TripwirePart():
+        haptics.play(Haptic.light);
+      default:
         break;
     }
   }
@@ -317,6 +433,9 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
   void _onPartEvent(PartEvent e) {
     lastPartEvent = e;
     if (!gameState.isSimulating) return;
+    // Tilted: the table reports nothing to the rules but the drain.
+    if (rules.t.tiltLockFlag && e.part is! DrainPart) return;
+    if (e.code == MC.controlCollision) _hapticFor(e.part);
     // A light only reports its timer when it has a control function
     // (`TLight::TimerExpired`: `if (light->Control)`).
     if (e.code == MC.controlTimerExpired &&
@@ -377,16 +496,30 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
         togglePause();
       case GameAction.start:
         startGame();
+      case GameAction.nudgeLeft:
+      case GameAction.nudgeRight:
+      case GameAction.nudgeBottom:
+        if (gameState.isSimulating && !rules.t.tiltLockFlag) {
+          switch (action) {
+            case GameAction.nudgeLeft:
+              nudge.bumpLeft();
+            case GameAction.nudgeRight:
+              nudge.bumpRight();
+            default:
+              nudge.bumpBottom();
+          }
+          haptics.play(Haptic.medium);
+        }
       case GameAction.leftFlipper:
       case GameAction.rightFlipper:
-        if (_controlsLive) {
+        if (_controlsLive && !rules.t.tiltLockFlag) {
           table.setFlipper(
             left: action == GameAction.leftFlipper,
             pressed: true,
           );
         }
       case GameAction.plunger:
-        if (_controlsLive) table.pressPlunger();
+        if (_controlsLive && !rules.t.tiltLockFlag) table.pressPlunger();
     }
   }
 
@@ -402,6 +535,9 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
         table.releasePlunger();
       case GameAction.pause:
       case GameAction.start:
+      case GameAction.nudgeLeft:
+      case GameAction.nudgeRight:
+      case GameAction.nudgeBottom:
         break;
     }
   }

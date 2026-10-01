@@ -53,10 +53,11 @@ void main(List<String> args) {
   } else {
     final strings = readPeStrings(exe.readAsBytesSync());
     File('${target.path}/strings.json').writeAsStringSync(
-      const JsonEncoder.withIndent(' ').convert({
-        for (final e in strings.entries) '${e.key}': e.value,
-      }),
+      const JsonEncoder.withIndent(' ')
+          .convert({for (final e in strings.entries) '${e.key}': e.value}),
     );
-    print('Extracted ${strings.length} messages to ${target.path}/strings.json');
+    print(
+      'Extracted ${strings.length} messages to ${target.path}/strings.json',
+    );
   }
 }

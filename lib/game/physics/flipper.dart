@@ -82,6 +82,7 @@ class Flipper {
           enableSleep: false,
         ),
       ) {
+    body.userData = this;
     final tip = Vector2(
       spec.restTipX - spec.originX,
       spec.restTipY - spec.originY,

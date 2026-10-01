@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flame/components.dart';
 
 import '../assets/original_assets.dart';
+import '../graphics.dart';
 import 'ball_renderer.dart';
 import 'space_cadet_table.dart';
 import 'table_projection.dart';
@@ -10,19 +11,18 @@ import 'table_projection.dart';
 /// An original component sprite whose frame follows game state, e.g. a
 /// flipper's angle or the plunger's pullback. [frame] returns -1 to hide.
 class ComponentSprite extends Component {
-  ComponentSprite(this.frames, this.frame);
+  ComponentSprite(this.frames, this.frame, this.graphics);
 
   final List<SpriteFrame?> frames;
   final int Function() frame;
-
-  static final _paint = Paint()..filterQuality = FilterQuality.none;
+  final Graphics graphics;
 
   @override
   void render(Canvas canvas) {
     final i = frame();
     if (i < 0 || i >= frames.length) return;
     final f = frames[i];
-    if (f != null) canvas.drawImage(f.image, f.offset, _paint);
+    if (f != null) graphics.drawBitmap(canvas, f.image, f.group, f.offset);
   }
 }
 

@@ -4,6 +4,7 @@ import 'package:flame/components.dart';
 
 import '../assets/original_assets.dart';
 import '../game_config.dart';
+import '../graphics.dart';
 
 /// The original playfield and scoreboard art.
 ///
@@ -11,12 +12,10 @@ import '../game_config.dart';
 /// (`TTableLayer`). It is 470 px tall but the screen is 416: the bottom of
 /// the cabinet falls outside the window, exactly as in the original.
 class TableArt extends Component {
-  TableArt(this.assets);
+  TableArt(this.assets, this.graphics);
 
   final OriginalAssets assets;
-
-  /// Pixel art: no smoothing when scaled up.
-  static final _paint = Paint()..filterQuality = FilterQuality.none;
+  final Graphics graphics;
 
   late final Rect _tableSrc = Rect.fromLTWH(
     0,
@@ -32,8 +31,20 @@ class TableArt extends Component {
 
   @override
   void render(Canvas canvas) {
-    canvas
-      ..drawImageRect(assets.table, _tableSrc, _tableSrc, _paint)
-      ..drawImage(assets.scoreboard, _scoreboardAt, _paint);
+    final data = assets.data;
+    graphics
+      ..drawBitmapRect(
+        canvas,
+        assets.table,
+        data.tableGroup,
+        _tableSrc,
+        _tableSrc,
+      )
+      ..drawBitmap(
+        canvas,
+        assets.scoreboard,
+        data.dat.indexOf('background'),
+        _scoreboardAt,
+      );
   }
 }

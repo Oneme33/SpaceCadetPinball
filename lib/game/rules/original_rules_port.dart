@@ -385,6 +385,7 @@ mixin _Functions on _RulesBase, _Components, _ScoreTables {
       };
 
   void tableAddExtraBall(double count) {
+    hooks.onSpecialAward?.call();
     ++t.extraBalls;
     soundwave28.play();
     info_text_box.display(rc(110), count);
@@ -402,6 +403,7 @@ mixin _Functions on _RulesBase, _Components, _ScoreTables {
   }
 
   void tableSetJackpot() {
+    hooks.onSpecialAward?.call();
     t.jackpotScoreFlag = true;
     lite60.message(MC.tLightTurnOnTimed, 60.0);
     info_text_box.display(rc(116), 2.0);
@@ -445,6 +447,7 @@ mixin _Functions on _RulesBase, _Components, _ScoreTables {
   }
 
   void tableSetReplay(double value) {
+    hooks.onSpecialAward?.call();
     lite199.message(MC.tLightResetAndTurnOn, 0.0);
     info_text_box.display(rc(101), value);
   }

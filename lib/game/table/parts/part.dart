@@ -34,6 +34,8 @@ class PartContext {
     required this.playSound,
     required this.soundDuration,
     required this.partByGroup,
+    required this.tilted,
+    required this.drainBall,
   });
 
   final World world;
@@ -61,6 +63,12 @@ class PartContext {
 
   /// The part built from DAT group [group] (`find_component`).
   final TablePart? Function(int group) partByGroup;
+
+  /// The table is tilted (`TPinballTable::TiltLockFlag`).
+  final bool Function() tilted;
+
+  /// Sends a ball down the drain, e.g. a wormhole while tilted.
+  final void Function(PinballBall ball) drainBall;
 }
 
 /// A runtime table component: the counterpart of the original's

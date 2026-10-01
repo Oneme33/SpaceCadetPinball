@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import '../../dat/dat_bitmap.dart';
 import '../assets/original_assets.dart';
+import '../graphics.dart';
 import 'camera_projection.dart';
 
 /// Draws a ball the way the original does (`TBall::Repaint`,
@@ -24,6 +25,8 @@ class BallRenderer {
     required this.tableDepth,
     required this.zMin,
     required this.zScaler,
+    required this.tableGroup,
+    required this.graphics,
   }) : _sprites = sprites,
        _thresholds = [
          for (final s in sprites)
@@ -36,13 +39,13 @@ class BallRenderer {
   final Image tableImage;
   final ZMap? tableDepth;
   final double zMin, zScaler;
+  final int tableGroup;
+  final Graphics graphics;
   final List<BallSprite> _sprites;
   final List<double> _thresholds;
 
   /// Per sprite, per row: opaque runs as (start, end) pairs.
   final List<List<Int32List>> _spans;
-
-  static final _paint = Paint()..filterQuality = FilterQuality.none;
 
   int spriteIndexFor(double x, double y, double z) {
     final depth = projection.depth(x, y, z);
@@ -67,7 +70,12 @@ class BallRenderer {
     final p = projection.toScreen3(x, y, z);
     final left = (p.dx - image.width ~/ 2).floor();
     final top = (p.dy - image.height ~/ 2).floor();
-    canvas.drawImage(image, Offset(left.toDouble(), top.toDouble()), _paint);
+    graphics.drawBitmap(
+      canvas,
+      image,
+      sprite.group,
+      Offset(left.toDouble(), top.toDouble()),
+    );
 
     final zmap = tableDepth;
     if (zmap == null) return;
@@ -92,7 +100,7 @@ class BallRenderer {
               end.toDouble(),
               sy + 1.0,
             );
-            canvas.drawImageRect(tableImage, rect, rect, _paint);
+            graphics.drawBitmapRect(canvas, tableImage, tableGroup, rect, rect);
             start = -1;
           }
         }

@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'dart:ui' show instantiateImageCodec;
 
 import 'package:flame/extensions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../../dat/dat_bitmap.dart';
+import '../../dat/dat_file.dart';
 import '../../dat/pinball_data.dart';
 
 /// The user's own original game data, decoded for rendering.
@@ -56,6 +58,37 @@ class OriginalAssets {
   final Map<int, List<SpriteFrame?>> _frames = {};
   final Map<int, List<Image>> _digits = {};
 
+  /// Loads the HD bitmaps made by tool/make_hd.dart, by DAT group.
+  /// Empty when they are not installed.
+  Future<Map<int, Image>> loadHd({AssetBundle? bundle}) async {
+    final b = bundle ?? rootBundle;
+    final groups = [
+      for (final g in data.dat.groups)
+        if (g.field(DatFieldType.bitmap8) != null) g.index,
+    ];
+    final entries = await Future.wait([
+      for (final g in groups)
+        () async {
+          try {
+            final bytes = await b.load('assets/original/hd/g$g.png');
+            final codec = await instantiateImageCodec(
+              bytes.buffer.asUint8List(
+                bytes.offsetInBytes,
+                bytes.lengthInBytes,
+              ),
+            );
+            return MapEntry(g, (await codec.getNextFrame()).image);
+          } on Object {
+            return null;
+          }
+        }(),
+    ]);
+    return {
+      for (final e in entries)
+        if (e != null) e.key: e.value,
+    };
+  }
+
   /// The ten digit bitmaps of a score field, 0–9.
   Future<List<Image>> digits(ScoreField field) async {
     final cached = _digits[field.digitGroup];
@@ -91,6 +124,7 @@ class OriginalAssets {
             (image) => SpriteFrame(
               image,
               Offset((b.x - ox).toDouble(), (b.y - oy).toDouble()),
+              s.group,
             ),
           )
         else
@@ -141,8 +175,13 @@ class OriginalAssets {
       await image(data.tableBitmap),
       await image(data.scoreboardBitmap),
       [
-        for (final (bmp, (x, y, z)) in data.ballSprites)
-          BallSprite(await image(bmp), bmp, (x, y, z)),
+        for (var i = 0; i < data.ballSprites.length; i++)
+          BallSprite(
+            await image(data.ballSprites[i].$1),
+            data.ballSprites[i].$1,
+            data.ballSprites[i].$2,
+            data.stateGroup(data.ballGroup, i),
+          ),
       ],
     );
   }
@@ -150,13 +189,19 @@ class OriginalAssets {
 
 /// A sprite and where it goes on the 600 × 416 screen.
 class SpriteFrame {
-  const SpriteFrame(this.image, this.offset);
+  const SpriteFrame(this.image, this.offset, this.group);
   final Image image;
   final Offset offset;
+
+  /// DAT group of the bitmap, for its HD version.
+  final int group;
 }
 
 class BallSprite {
-  BallSprite(this.image, this.bitmap, this.depthPoint);
+  BallSprite(this.image, this.bitmap, this.depthPoint, this.group);
+
+  /// DAT group of the bitmap, for its HD version.
+  final int group;
 
   final Image image;
 
