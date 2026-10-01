@@ -36,9 +36,11 @@ button (pause).
 ## HD graphics
 
 The pause menu switches between **Classic** (the original pixels) and
-**HD**: every bitmap of the DAT upscaled 4× with Real-ESRGAN
-(realesrgan-x4plus), drawn into exactly the same rectangles, so the game
-plays identically. Make the HD set from your installed originals:
+**HD**: every bitmap of the DAT upscaled 4× with Real-ESRGAN, drawn into
+exactly the same rectangles, so the game plays identically. The table and
+its parts use the general model (realesrgan-x4plus); the scoreboard's
+cartoon art uses the anime model, which keeps the logo and the cadet crisp.
+The score digits stay classic in both modes. Make the HD set from your installed originals:
 
 ```bash
 dart run tool/make_hd.dart --esrgan path/to/realesrgan-ncnn-vulkan
@@ -50,8 +52,9 @@ v0.2.5.0, `realesrgan-ncnn-vulkan` for your platform). The result lands in
 
 ## Pause menu and settings
 
-Esc, P or a tap on the scoreboard opens it: resume, new game, graphics
-(Classic/HD), sound on/off and, on phones, haptics on/off. Settings and the
+Esc, P or a tap on the scoreboard opens it: resume, new game, a "How to
+Play" guide (written from the ported rules), graphics (Classic/HD), sound
+on/off and, on phones, haptics on/off. It is styled after the scoreboard. Settings and the
 high score table are kept between sessions.
 
 ## Screen layout

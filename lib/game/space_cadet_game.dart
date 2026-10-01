@@ -119,6 +119,13 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
     enabled: () => settings.haptics,
   );
 
+  /// The scoreboard art in the current graphics mode, for the menu.
+  Image? get scoreboardImage {
+    final o = originals;
+    if (o == null) return null;
+    return graphics.hdFor(o.data.dat.indexOf('background')) ?? o.scoreboard;
+  }
+
   /// Whether the HD set has been made (tool/make_hd.dart): checked once at
   /// load by looking for the playfield's HD bitmap.
   bool hdInstalled = false;

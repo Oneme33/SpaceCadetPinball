@@ -1,6 +1,9 @@
 // Builds the HD graphics: every bitmap in PINBALL.DAT, upscaled 4× with
-// Real-ESRGAN (realesrgan-x4plus), into assets/original/hd/ (git-ignored,
-// like the originals it is made from).
+// Real-ESRGAN into assets/original/hd/ (git-ignored, like the originals it
+// is made from). The table and its parts use the general model
+// (realesrgan-x4plus); the scoreboard's cartoon art uses the anime model,
+// which keeps its logo and the cadet crisp. Score digits are not used in
+// HD: they stay classic.
 //
 //   dart run tool/make_hd.dart --esrgan path/to/realesrgan-ncnn-vulkan
 //
@@ -20,6 +23,9 @@ import 'package:space_cadet/dat/dat_file.dart';
 import 'package:space_cadet/dat/pinball_data.dart';
 
 const scale = 4;
+
+/// Groups drawn as cartoons rather than rendered 3D: the scoreboard.
+const animeGroups = ['background'];
 
 void main(List<String> args) {
   final i = args.indexOf('--esrgan');
@@ -54,17 +60,31 @@ void main(List<String> args) {
   }
   print('Extracted $count bitmaps; upscaling ×$scale…');
 
-  final r = Process.runSync(esrgan.path, [
-    '-i', src.path, //
-    '-o', out.path,
-    '-n', 'realesrgan-x4plus',
-    '-s', '$scale',
-    '-f', 'png',
-    '-m', '${esrgan.parent.path}/models',
-  ]);
-  if (r.exitCode != 0) {
-    stderr.writeln(r.stderr);
-    exit(1);
+  void upscale(String input, String output, String model) {
+    final r = Process.runSync(esrgan.path, [
+      '-i', input, //
+      '-o', output,
+      '-n', model,
+      '-s', '$scale',
+      '-f', 'png',
+      '-m', '${esrgan.parent.path}/models',
+    ]);
+    if (r.exitCode != 0) {
+      stderr.writeln(r.stderr);
+      exit(1);
+    }
+  }
+
+  upscale(src.path, out.path, 'realesrgan-x4plus');
+  // Cartoon art: the anime model, over the general result.
+  for (final name in animeGroups) {
+    final g = data.dat.indexOf(name);
+    if (g < 0) continue;
+    upscale(
+      '${src.path}/g$g.png',
+      '${out.path}/g$g.png',
+      'realesrgan-x4plus-anime',
+    );
   }
 
   final hd = Directory('assets/original/hd')..createSync(recursive: true);

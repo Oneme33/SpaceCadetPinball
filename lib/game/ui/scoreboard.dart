@@ -53,11 +53,12 @@ class DigitField {
       final d = text.codeUnitAt(i) - 0x30;
       final image = digits[d];
       x -= image.width;
-      graphics.drawBitmap(
-        canvas,
+      // The digits stay classic in HD too: upscaled they lose their
+      // dot-matrix look.
+      canvas.drawImage(
         image,
-        field.digitGroup + d,
         Offset(x, field.y.toDouble()),
+        Graphics.classicPaint,
       );
     }
   }
