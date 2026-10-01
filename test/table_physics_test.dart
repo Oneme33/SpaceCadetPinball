@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:space_cadet/dat/pinball_data.dart';
 import 'package:space_cadet/game/physics/physics_world.dart';
 import 'package:space_cadet/game/physics/plunger.dart';
+import 'package:space_cadet/game/table/parts/solid_parts.dart';
 import 'package:space_cadet/game/table/space_cadet_table.dart';
 import 'package:space_cadet/game/table/table_layout.dart';
 
@@ -108,6 +109,32 @@ void main() {
         expect(ball.body.linearVelocity.y, lessThan(-40));
         expect(ball.y, lessThan(f.originY - 3));
       });
+
+      // Easy mode: with the centre post up, the longer flippers close the
+      // gaps beside it, so a ball falling between the flippers stays.
+      for (final length in [1.0, 1.25]) {
+        test('flippers of length $length beside the centre post', () {
+          final post = table.parts.whereType<BlockerPart>().firstOrNull;
+          if (post == null) return; // The placeholder has none.
+          post.raise();
+          table
+            ..leftFlipper.length = length
+            ..rightFlipper.length = length;
+          var drained = 0;
+          for (final x in [-0.5, -0.45, 0.0, 0.45, 0.5]) {
+            events.clear();
+            table.addBall(x, 12.0);
+            run(3);
+            if (events.contains(TableEvent.ballDrained)) drained++;
+            table.removeAllBalls();
+          }
+          if (length == 1) {
+            expect(drained, greaterThan(0));
+          } else {
+            expect(drained, 0);
+          }
+        });
+      }
     });
   }
 }

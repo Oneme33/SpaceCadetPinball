@@ -4,6 +4,7 @@ import 'package:flame/camera.dart';
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart' show KeyEventResult;
@@ -37,6 +38,7 @@ import 'table/table_art.dart';
 import 'table/table_layout.dart';
 import 'table/table_projection.dart';
 import 'table/table_sprites.dart';
+import 'ui/cadet_car.dart';
 import 'ui/debug_hud.dart';
 import 'ui/scoreboard.dart';
 import 'ui/text_box.dart';
@@ -119,11 +121,28 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
     enabled: () => settings.haptics,
   );
 
-  /// The scoreboard art in the current graphics mode, for the menu.
-  Image? get scoreboardImage {
+  /// The cadet in his car, cut out of the scoreboard, for the menu: the
+  /// classic and (once HD is loaded) the HD version.
+  Image? _carClassic, _carHd;
+  Image? get cadetCarImage =>
+      graphics.hd ? (_carHd ?? _carClassic) : _carClassic;
+
+  Future<void> _prepareCadetCar() async {
     final o = originals;
-    if (o == null) return null;
-    return graphics.hdFor(o.data.dat.indexOf('background')) ?? o.scoreboard;
+    if (o == null) return;
+    try {
+      final car = CadetCar.fromScoreboard(
+        o.data.scoreboardBitmap,
+        o.data.palette,
+      );
+      _carClassic = await car.cutOut(o.scoreboard, 1);
+      final hd = graphics.hdImages[o.data.dat.indexOf('background')];
+      if (hd != null) {
+        _carHd = await car.cutOut(hd, hd.width ~/ o.scoreboard.width);
+      }
+    } on Object catch (e) {
+      debugPrint('Cadet car not available: $e');
+    }
   }
 
   /// Whether the HD set has been made (tool/make_hd.dart): checked once at
@@ -134,6 +153,26 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
     settings.sound = on;
     audio.enabled = on;
     if (!on) audio.stopAll();
+  }
+
+  /// Longer flippers in easy mode, relative to the original.
+  static const easyFlipperLength = 1.25;
+
+  /// Whether the running game was played in easy mode at any point. Its
+  /// scores then go to the easy high score table, so turning easy mode on
+  /// for a moment and off again does not count as a normal game.
+  bool _easyGame = false;
+
+  /// Easy mode: the decompilation's "easy mode" cheat (the centre post
+  /// stays up, the kickback gates stay open) plus longer flippers, which
+  /// the original does not have.
+  void setEasy(bool on) {
+    settings.easy = on;
+    if (on) _easyGame = true;
+    for (final f in [table.leftFlipper, table.rightFlipper]) {
+      f.length = on ? easyFlipperLength : 1;
+    }
+    rules.setEasyMode(on);
   }
 
   /// "New Game" in the pause menu: the running game ends, a new one
@@ -155,6 +194,7 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
     if (on && !graphics.hdAvailable && o != null) {
       graphics.hdImages = await o.loadHd();
     }
+    await _prepareCadetCar();
   }
 
   BallRenderer? ballRenderer;
@@ -214,8 +254,8 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
       hooks: RulesHooks(
         onGameOver: _gameOver,
         onSpecialAward: () => haptics.play(Haptic.heavy),
-        loadHighScores: () => settings.highScores,
-        saveHighScores: (s) => settings.highScores = s,
+        loadHighScores: () => settings.highScoresFor(easy: _easyGame),
+        saveHighScores: (s) => settings.setHighScores(s, easy: _easyGame),
       ),
     );
     table
@@ -245,8 +285,17 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
         world.add(ComponentSprite(allFrames[i], () => p.frame, graphics));
       }
       await sprite(ComponentType.plunger, (_) => table.plunger.frame);
-      await sprite(ComponentType.flipperLeft, table.leftFlipper.frame);
-      await sprite(ComponentType.flipperRight, table.rightFlipper.frame);
+      for (final (type, flipper) in [
+        (ComponentType.flipperLeft, table.leftFlipper),
+        (ComponentType.flipperRight, table.rightFlipper),
+      ]) {
+        final frames = await originals.framesFor(layout.ofType(type).first);
+        final pivot = projection.toScreen(
+          flipper.spec.originX,
+          flipper.spec.originY,
+        );
+        world.add(FlipperSprite(frames, flipper, pivot, graphics));
+      }
     } else {
       world
         ..add(PlaceholderTable())
@@ -278,6 +327,8 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
       }
     }
     if (settings.hd && hdInstalled) await setHd(true);
+    await _prepareCadetCar();
+    if (settings.easy) setEasy(true);
 
     gameState.handle(GameEvent.assetsLoaded);
   }
@@ -391,6 +442,7 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
       ..releaseControls()
       ..timers.clear();
     _scoreShown = true;
+    _easyGame = settings.easy;
     rules.t.message(MC.newGame, 1);
   }
 

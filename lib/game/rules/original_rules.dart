@@ -43,6 +43,22 @@ class OriginalRules extends _RulesBase
     missionControl(code, part);
   }
 
+  /// The "easy mode" cheat of the decompilation (control.cpp, typed as a
+  /// cheat or picked from its debug menu): the centre post goes up for
+  /// good and the kickback gates open, and with [easyMode] set neither
+  /// times out. `PlungerControl` raises the post again for every new ball.
+  void setEasyMode(bool on) {
+    if (easyMode == on) return;
+    easyMode = on;
+    if (on) {
+      drainBallBlockerControl(MC.tBlockerEnable, block1);
+      gate1.message(MC.tGateDisable, 0.0);
+      gate2.message(MC.tGateDisable, 0.0);
+    } else {
+      drainBallBlockerControl(MC.controlTimerExpired, block1);
+    }
+  }
+
   @override
   int _scoring(TablePart? part, int index) {
     if (part == null) return 0;

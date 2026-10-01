@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:space_cadet/dat/dat_file.dart';
 import 'package:space_cadet/dat/pinball_data.dart';
 import 'package:space_cadet/game/table/camera_projection.dart';
+import 'package:space_cadet/game/ui/cadet_car.dart';
 
 /// Runs against the user's own PINBALL.DAT. Skipped when it is not
 /// installed, because the file is not in the repository.
@@ -142,6 +143,31 @@ void main() {
       // Open floor between the flippers' inlanes and on the main field.
       expect(hidden(0, 9), lessThan(0.1));
       expect(hidden(-2, -4), lessThan(0.1));
+    });
+
+    test('the cadet car is cut out without the logo or the stars', () {
+      final car = CadetCar.fromScoreboard(data.scoreboardBitmap, data.palette);
+      expect(car.contains(120, 120), isTrue, reason: 'car body');
+      expect(car.contains(140, 70), isTrue, reason: 'helmet');
+      expect(car.contains(135, 95), isTrue, reason: 'cadet');
+      // The "e" of "Space" behind the dome, and the "Cadet" letters.
+      var letters = 0;
+      for (var y = CadetCar.top; y < 60; y++) {
+        for (var x = 80; x < 110; x++) {
+          if (car.contains(x, y)) letters++;
+        }
+      }
+      expect(letters, lessThan(15));
+      // Stars on the right, away from the car.
+      expect(car.contains(190, 130), isFalse);
+      // The see-through dome: glass where the letters show through, and
+      // its rim along the grey line in the art.
+      expect(CadetCar.inDome(140, 60), isTrue);
+      expect(CadetCar.inDome(100, 50), isFalse);
+      expect(CadetCar.domeDistance(140, 53).abs(), lessThan(1.5));
+      expect(CadetCar.domeDistance(112, 60).abs(), lessThan(1.5));
+      final rim = car.rimColor;
+      expect((rim >> 24 & 0xff) - (rim >> 8 & 0xff), lessThan(30));
     });
 
     test('the plunger lane is on the right of the screen', () {

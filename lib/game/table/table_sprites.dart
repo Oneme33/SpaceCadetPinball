@@ -4,6 +4,7 @@ import 'package:flame/components.dart';
 
 import '../assets/original_assets.dart';
 import '../graphics.dart';
+import '../physics/flipper.dart';
 import 'ball_renderer.dart';
 import 'space_cadet_table.dart';
 import 'table_projection.dart';
@@ -23,6 +24,35 @@ class ComponentSprite extends Component {
     if (i < 0 || i >= frames.length) return;
     final f = frames[i];
     if (f != null) graphics.drawBitmap(canvas, f.image, f.group, f.offset);
+  }
+}
+
+/// A flipper's sprite, scaled about its pivot with [Flipper.length] so
+/// the art matches the longer flippers of easy mode.
+class FlipperSprite extends ComponentSprite {
+  FlipperSprite(
+    List<SpriteFrame?> frames,
+    this.flipper,
+    this.pivot,
+    Graphics graphics,
+  ) : super(frames, () => flipper.frame(frames.length), graphics);
+
+  final Flipper flipper;
+
+  /// The pivot on screen.
+  final Offset pivot;
+
+  @override
+  void render(Canvas canvas) {
+    final s = flipper.length;
+    if (s == 1) return super.render(canvas);
+    canvas
+      ..save()
+      ..translate(pivot.dx, pivot.dy)
+      ..scale(s)
+      ..translate(-pivot.dx, -pivot.dy);
+    super.render(canvas);
+    canvas.restore();
   }
 }
 

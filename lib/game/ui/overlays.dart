@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -121,7 +122,7 @@ class _PauseMenuState extends State<_PauseMenu> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _Logo(image: game.scoreboardImage),
+        _FlyingCadet(car: game.cadetCarImage),
         const SizedBox(height: 10),
         Text(
           'GAME PAUSED',
@@ -133,6 +134,20 @@ class _PauseMenuState extends State<_PauseMenu> {
         _Row(label: 'New Game', onTap: game.newGameFromMenu),
         _Row(label: 'How to Play', onTap: () => setState(() => _guide = true)),
         const SizedBox(height: 10),
+        _Row(
+          label: 'Mode',
+          value: s.easy ? 'Easy' : 'Normal',
+          onTap: () => setState(() => game.setEasy(!s.easy)),
+        ),
+        if (s.easy)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(4, 0, 4, 4),
+            child: Text(
+              'Longer flippers, centre post up, kickbacks open. '
+              'Own high scores.',
+              style: _small,
+            ),
+          ),
         _Row(
           label: 'Graphics',
           value: graphics,
@@ -271,65 +286,14 @@ const _guideSections = [
         'the lit bonus lane to collect your bonus, and every drained ball '
         'pays a crash bonus.',
   ),
+  (
+    'Easy mode',
+    'Switch Mode to Easy in this menu for longer flippers, a centre post '
+        'that stays up between them and kickbacks that never close: the '
+        'ball can only drain through an outlane, and rarely does. Easy '
+        'games keep their own high scores.',
+  ),
 ];
-
-/// The scoreboard's "3D Pinball Space Cadet" logo, from the original art.
-class _Logo extends StatelessWidget {
-  const _Logo({required this.image});
-  final ui.Image? image;
-
-  /// The logo and the cadet, above the BALL counter (classic pixels of the
-  /// 203-wide scoreboard).
-  static const _src = Rect.fromLTWH(8, 8, 187, 108);
-
-  /// The same area in the HD image, which is larger.
-  static Rect _scaled(ui.Image img) {
-    final k = img.width / 203;
-    return Rect.fromLTRB(
-      _src.left * k,
-      _src.top * k,
-      _src.right * k,
-      _src.bottom * k,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final img = image;
-    if (img == null) {
-      return Text(
-        '3D Pinball — Space Cadet',
-        textAlign: TextAlign.center,
-        style: _label.copyWith(fontSize: 18),
-      );
-    }
-    return _Panel(
-      child: AspectRatio(
-        aspectRatio: _src.width / _src.height,
-        child: CustomPaint(painter: _ImagePainter(img, _scaled(img))),
-      ),
-    );
-  }
-}
-
-class _ImagePainter extends CustomPainter {
-  _ImagePainter(this.image, this.src);
-  final ui.Image image;
-  final Rect src;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.drawImageRect(
-      image,
-      src,
-      Offset.zero & size,
-      Paint()..filterQuality = FilterQuality.medium,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_ImagePainter old) => old.image != image;
-}
 
 /// The scoreboard's grey metal frame: raised bevel around a dark body.
 class _Frame extends StatelessWidget {
@@ -430,4 +394,121 @@ class _Row extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// The cadet in his space car looping around a starfield: the menu's
+/// header. Still when the system asks for reduced motion.
+class _FlyingCadet extends StatefulWidget {
+  const _FlyingCadet({required this.car});
+  final ui.Image? car;
+
+  @override
+  State<_FlyingCadet> createState() => _FlyingCadetState();
+}
+
+class _FlyingCadetState extends State<_FlyingCadet>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _loop = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 9),
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _loop.stop();
+    } else if (!_loop.isAnimating) {
+      _loop.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _loop.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final car = widget.car;
+    return _Panel(
+      child: AspectRatio(
+        aspectRatio: 187 / 120,
+        child: car == null
+            ? Center(
+                child: Text(
+                  '3D Pinball — Space Cadet',
+                  style: _label.copyWith(fontSize: 18),
+                ),
+              )
+            : RepaintBoundary(
+                child: CustomPaint(painter: _LoopPainter(car, _loop)),
+              ),
+      ),
+    );
+  }
+}
+
+class _LoopPainter extends CustomPainter {
+  _LoopPainter(this.car, this.loop) : super(repaint: loop);
+  final ui.Image car;
+  final Animation<double> loop;
+
+  // Fixed stars, in the scoreboard's own star colours.
+  static final _stars = () {
+    final r = math.Random(5);
+    return [
+      for (var i = 0; i < 46; i++)
+        (r.nextDouble(), r.nextDouble(), r.nextInt(3), r.nextDouble()),
+    ];
+  }();
+  static const _starColors = [
+    Color(0xFFFFFFFF),
+    Color(0xFF9FB4FF),
+    Color(0xFF6E86E8),
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()..color = const Color(0xFF000000),
+    );
+    final t = loop.value * 2 * math.pi;
+    final star = Paint();
+    for (final (x, y, c, phase) in _stars) {
+      final twinkle = 0.55 + 0.45 * math.sin(t * 3 + phase * 6.3);
+      star.color = _starColors[c].withValues(alpha: twinkle);
+      canvas.drawRect(
+        Rect.fromLTWH(x * size.width, y * size.height, 1.4, 1.4),
+        star,
+      );
+    }
+
+    // A figure-eight loop; the car faces left in the art, so it turns
+    // round (a quick horizontal flip) while it flies to the right.
+    final carW = size.width * 0.56;
+    final carH = carW * car.height / car.width;
+    final cx = size.width / 2 + math.sin(t) * (size.width - carW) * 0.45;
+    final cy = size.height / 2 + math.sin(2 * t) * (size.height - carH) * 0.5;
+    final dx = math.cos(t), dy = math.cos(2 * t);
+    final facing = (-dx * 4).clamp(-1.0, 1.0);
+    canvas
+      ..save()
+      ..clipRect(Offset.zero & size)
+      ..translate(cx, cy)
+      ..rotate(-dy * 0.16 * facing.sign)
+      ..scale(facing, 1);
+    canvas.drawImageRect(
+      car,
+      Rect.fromLTWH(0, 0, car.width.toDouble(), car.height.toDouble()),
+      Rect.fromCenter(center: Offset.zero, width: carW, height: carH),
+      Paint()..filterQuality = FilterQuality.medium,
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_LoopPainter old) => old.car != car;
 }

@@ -101,6 +101,31 @@ void main() {
       run(0.3);
     }
 
+    test('easy mode keeps the centre post up and the kickbacks open', () {
+      rules.setEasyMode(true);
+      newGame();
+      expect(rules.block1.active, isTrue, reason: 'centre post up');
+      expect(rules.gate1.active, isFalse, reason: 'left kickback open');
+      expect(rules.gate2.active, isFalse, reason: 'right kickback open');
+      // After a kick the original closes the gate when the kicker's timer
+      // runs out; easy mode keeps it open, and the post never times out.
+      rules
+        ..handler(MC.controlTimerExpired, rules.kicker1)
+        ..handler(MC.controlTimerExpired, rules.kicker2);
+      run(70);
+      expect(rules.gate1.active, isFalse);
+      expect(rules.gate2.active, isFalse);
+      expect(rules.block1.active, isTrue);
+
+      // Off again: the post gets its last 5 flashing seconds, as when its
+      // time runs out normally, and then drops.
+      rules.setEasyMode(false);
+      run(6);
+      expect(rules.block1.active, isFalse, reason: 'post lowered again');
+      rules.handler(MC.controlTimerExpired, rules.kicker1);
+      expect(rules.gate1.active, isTrue, reason: 'normal: gate closes');
+    });
+
     test('every control function is linked to a component', () {
       for (final name in rules.controls.keys) {
         expect(table.part(name), isNotNull, reason: name);

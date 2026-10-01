@@ -37,6 +37,7 @@ class Settings {
   late bool _hd = _get('graphics_hd', false);
   late bool _sound = _get('sound', true);
   late bool _haptics = _get('haptics', true);
+  late bool _easy = _get('easy_mode', false);
 
   /// HD graphics (upscaled originals) instead of the classic pixels.
   bool get hd => _hd;
@@ -48,11 +49,19 @@ class Settings {
   bool get haptics => _haptics;
   set haptics(bool v) => _set('haptics', _haptics = v);
 
-  List<int> get highScores {
+  /// Easy mode: longer flippers, the centre post up, kickbacks open.
+  bool get easy => _easy;
+  set easy(bool v) => _set('easy_mode', _easy = v);
+
+  /// Easy mode keeps its own high scores.
+  static String _scoresKey(bool easy) =>
+      easy ? 'high_scores_easy' : 'high_scores';
+
+  List<int> highScoresFor({required bool easy}) {
     try {
       return [
         for (final s
-            in _prefs?.getStringList('high_scores') ?? const <String>[])
+            in _prefs?.getStringList(_scoresKey(easy)) ?? const <String>[])
           ?int.tryParse(s),
       ];
     } on Object {
@@ -60,9 +69,9 @@ class Settings {
     }
   }
 
-  set highScores(List<int> scores) {
+  void setHighScores(List<int> scores, {required bool easy}) {
     try {
-      _prefs?.setStringList('high_scores', [for (final s in scores) '$s']);
+      _prefs?.setStringList(_scoresKey(easy), [for (final s in scores) '$s']);
     } on Object {
       // Not stored.
     }

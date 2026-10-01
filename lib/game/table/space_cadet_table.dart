@@ -165,7 +165,8 @@ class SpaceCadetTable {
         Rect.fromPoints(
           Offset(f.originX, f.originY),
           Offset(f.restTipX, f.extendedTipY),
-        ).inflate(f.baseRadius),
+          // Room for the longer flippers of easy mode.
+        ).inflate(f.baseRadius + 0.5),
       Rect.fromLTRB(
         layout.plunger.x1,
         layout.plunger.feedY - layout.ballRadius,

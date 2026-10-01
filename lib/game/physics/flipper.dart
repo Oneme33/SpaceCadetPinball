@@ -83,10 +83,15 @@ class Flipper {
         ),
       ) {
     body.userData = this;
-    final tip = Vector2(
-      spec.restTipX - spec.originX,
-      spec.restTipY - spec.originY,
-    );
+    _buildShapes();
+  }
+
+  void _buildShapes() {
+    for (final shape in body.shapes) {
+      shape.destroy();
+    }
+    final tip = Vector2(tipX, tipY);
+    final base = spec.baseRadius * _length, end = spec.tipRadius * _length;
     final dir = tip.normalized();
     final perp = Vector2(-dir.y, dir.x);
     final def = ShapeDef(
@@ -96,14 +101,14 @@ class Flipper {
       userData: this,
     );
     body
-      ..createShape(Circle(radius: spec.baseRadius), def)
-      ..createShape(Circle(center: tip, radius: spec.tipRadius), def)
+      ..createShape(Circle(radius: base), def)
+      ..createShape(Circle(center: tip, radius: end), def)
       ..createShape(
         Polygon([
-          perp * spec.baseRadius,
-          tip + perp * spec.tipRadius,
-          tip - perp * spec.tipRadius,
-          -perp * spec.baseRadius,
+          perp * base,
+          tip + perp * end,
+          tip - perp * end,
+          -perp * base,
         ]),
         def,
       );
@@ -115,6 +120,21 @@ class Flipper {
 
   /// Held by the player.
   bool pressed = false;
+
+  double _length = 1;
+
+  /// Size relative to the original, scaled about the pivot: 1 is the
+  /// original flipper. Not original: easy mode makes them longer.
+  double get length => _length;
+  set length(double v) {
+    if (v == _length) return;
+    _length = v;
+    _buildShapes();
+  }
+
+  /// The tip at rest, relative to the pivot.
+  double get tipX => (spec.restTipX - spec.originX) * _length;
+  double get tipY => (spec.restTipY - spec.originY) * _length;
 
   /// Current rotation from rest, between 0 and [FlipperSpec.angleMax].
   double get angle => body.angle;
@@ -142,8 +162,6 @@ class Flipper {
   List<(double, double)> outline({int arcPoints = 6}) {
     final a = angle;
     final c = math.cos(a), s = math.sin(a);
-    final tipX = spec.restTipX - spec.originX,
-        tipY = spec.restTipY - spec.originY;
     final pts = <(double, double)>[];
     final base = math.atan2(tipY, tipX);
     void arc(double cx, double cy, double r, double from) {
@@ -153,8 +171,8 @@ class Flipper {
       }
     }
 
-    arc(tipX, tipY, spec.tipRadius, base - math.pi / 2);
-    arc(0, 0, spec.baseRadius, base + math.pi / 2);
+    arc(tipX, tipY, spec.tipRadius * _length, base - math.pi / 2);
+    arc(0, 0, spec.baseRadius * _length, base + math.pi / 2);
     return [
       for (final (x, y) in pts)
         (spec.originX + x * c - y * s, spec.originY + x * s + y * c),

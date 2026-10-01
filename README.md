@@ -53,9 +53,30 @@ v0.2.5.0, `realesrgan-ncnn-vulkan` for your platform). The result lands in
 ## Pause menu and settings
 
 Esc, P or a tap on the scoreboard opens it: resume, new game, a "How to
-Play" guide (written from the ported rules), graphics (Classic/HD), sound
-on/off and, on phones, haptics on/off. It is styled after the scoreboard. Settings and the
-high score table are kept between sessions.
+Play" guide (written from the ported rules), mode (Normal/Easy), graphics
+(Classic/HD), sound on/off and, on phones, haptics on/off. It is styled
+after the scoreboard. Settings and the high score tables are kept between
+sessions.
+
+At the top the cadet flies a figure-eight through the stars in his space
+car, cut out of the scoreboard art (classic or HD, whichever is on). The
+logo letters behind his see-through dome are replaced by a glass tint and
+the dome's rim. The loop stands still when the system asks for reduced
+motion.
+
+### Easy mode
+
+Not original, for a relaxed game:
+
+- the "easy mode" cheat of the decompilation (control.cpp): the centre post
+  between the flippers stays up for good and the kickback gates stay open,
+  so both outlanes kick the ball back every time;
+- flippers 1.25× as long (physics and sprite, scaled about the pivot), so
+  together with the post the gap between the flippers is closed. A ball
+  that slips past a kickback can still drain, but rarely does.
+
+Turning it on during a game marks that game as an easy game: its score goes
+to a separate easy high score table.
 
 ## Screen layout
 
