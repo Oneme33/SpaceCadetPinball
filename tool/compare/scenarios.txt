@@ -1,0 +1,73 @@
+# Plunger: full pull (held 1.5 s) and a quick tap.
+scenario plunge_full 4
+at 0 plungerDown
+at 1.5 plungerUp
+end
+scenario plunge_quick 4
+at 0 plungerDown
+at 0.25 plungerUp
+end
+# A ball dropped on the left flipper rolls down it.
+scenario roll_left 1.5
+ball 2.2 11.4 0 0
+end
+# The same ball, flipped early, mid and late.
+scenario flip_early 1.5
+ball 2.2 11.4 0 0
+at 0.20 leftDown
+at 0.8 leftUp
+end
+scenario flip_mid 1.5
+ball 2.2 11.4 0 0
+at 0.35 leftDown
+at 0.9 leftUp
+end
+scenario flip_late 1.5
+ball 2.2 11.4 0 0
+at 0.50 leftDown
+at 1.0 leftUp
+end
+# Bumper hits: head-on and off-centre.
+scenario bumper_head 1.5
+ball 0.01 -5.0 0 5
+end
+scenario bumper_side 1.5
+ball 0.25 -5.0 0 5
+end
+# Slingshots.
+scenario sling_left 1.5
+ball 3.3 6.5 0 0
+end
+scenario sling_right 1.5
+ball -3.3 6.5 0 0
+end
+# Free drops over the field.
+scenario drop_mid 3
+ball 0 0 0 0
+end
+scenario drop_upper 3
+ball 2 -6 0 0
+end
+# A shot up the middle.
+scenario shot_up 3
+ball 0.3 7 0 -30
+end
+# Shots up the left ramp from its foot, weak to strong.
+scenario ramp_10 3
+ball 2.39 1.6 6.5804 -7.5298
+end
+scenario ramp_20 3
+ball 2.39 1.6 13.1608 -15.0596
+end
+scenario ramp_25 3
+ball 2.39 1.6 16.4510 -18.8246
+end
+scenario ramp_30 3
+ball 2.39 1.6 19.7412 -22.5895
+end
+scenario ramp_35 3
+ball 2.39 1.6 23.0314 -26.3544
+end
+scenario ramp_45 3
+ball 2.39 1.6 29.6118 -33.8842
+end

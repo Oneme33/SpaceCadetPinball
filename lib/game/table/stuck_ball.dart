@@ -7,9 +7,10 @@ import '../physics/ball.dart';
 /// `control::UnstuckBall`).
 ///
 /// A free ball slower than 0.8 for more than half a second gets a small push
-/// in a random direction every frame, unless it rests by a flipper or the
-/// plunger, where balls may sit. When it has not moved half a radius for
-/// more than 20 checks it is taken away and a new one is launched.
+/// in a random direction, and another after every further half second it
+/// stays slow, unless it rests by a flipper or the plunger, where balls may
+/// sit. When it has not moved half a radius for more than 20 of these
+/// checks (about ten seconds) it is taken away and a new one is launched.
 class StuckBallGuard {
   StuckBallGuard({
     required this.restAreas,
@@ -60,6 +61,13 @@ class StuckBallGuard {
         final angle = (1 - 2 * _random.nextDouble()) * 90;
         b.body.linearVelocity = b.body.linearVelocity
           ..setValues(-math.sin(angle), -math.cos(angle));
+        // The push makes the ball count as moving: the original's next
+        // frame sees speed 1 and resets the clock, so the next push (and
+        // check) comes after another half second of standing still. Our
+        // checks run at 60 Hz, by when gravity may have slowed the ball
+        // below 0.8 again; without this it was pushed every check and
+        // relaunched after a third of a second.
+        t.lastActive = now;
       } else {
         _tracks.remove(b);
         relaunch(b);

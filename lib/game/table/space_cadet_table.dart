@@ -18,6 +18,7 @@ import 'parts/ramp_part.dart';
 import 'parts/sensor_parts.dart';
 import 'parts/table_proxies.dart';
 import 'stuck_ball.dart';
+import '../physics/original_collision.dart';
 import '../rules/message_code.dart';
 import 'parts/solid_parts.dart';
 import 'table_layout.dart';
@@ -181,6 +182,7 @@ class SpaceCadetTable {
     },
   );
   final Map<(TablePart, PinballBall), (double, Vector2)> _hits = {};
+  final Map<PinballBall, (double, Object?, Vector2)> _rebounds = {};
 
   void Function(TableEvent event)? onEvent;
   void Function(PartEvent event)? onPartEvent;
@@ -360,7 +362,8 @@ class SpaceCadetTable {
       if (b.isCaptured) continue;
       b
         ..prevX = b.x
-        ..prevY = b.y;
+        ..prevY = b.y
+        ..preVelocity.setFrom(b.body.linearVelocity);
       for (final p in _fieldParts) {
         p.field(b);
       }
@@ -371,25 +374,71 @@ class SpaceCadetTable {
 
   void _afterStep(double dt) {
     // One hit per part and ball per step: a ball touching two segments of
-    // the same wall must not be kicked twice. Keep the strongest.
+    // the same wall must not be kicked twice. Keep the strongest. The
+    // strongest hit of all sets the ball's rebound, the original's way.
     _hits.clear();
+    _rebounds.clear();
     for (final hit in physics.world.contactEvents.hit) {
       final a = hit.shapeA.body.userData, b = hit.shapeB.body.userData;
-      if (a is Flipper || b is Flipper) {
-        onFlipperHit?.call(hit.approachSpeed);
+      if (a is PinballBall && b is PinballBall) {
+        final (va, vb) = OriginalCollision.balls(
+          a.preVelocity,
+          b.preVelocity,
+          hit.normal,
+        );
+        a.body.linearVelocity = va;
+        b.body.linearVelocity = vb;
         continue;
       }
-      final (TablePart, PinballBall, Vector2)? h = switch ((a, b)) {
-        (final TablePart p, final PinballBall ball) => (p, ball, hit.normal),
-        (final PinballBall ball, final TablePart p) => (p, ball, -hit.normal),
+      // The normal points from the wall to the ball.
+      final (Object?, PinballBall, Vector2)? h = switch ((a, b)) {
+        (_, final PinballBall ball) => (a, ball, hit.normal),
+        (final PinballBall ball, _) => (b, ball, -hit.normal),
         _ => null,
       };
       if (h == null) continue;
-      final key = (h.$1, h.$2);
+      final (other, ball, normal) = h;
+      final rebound = _rebounds[ball];
+      if (rebound == null || hit.approachSpeed > rebound.$1) {
+        _rebounds[ball] = (hit.approachSpeed, other, normal);
+      }
+      if (other is Flipper) {
+        onFlipperHit?.call(hit.approachSpeed);
+        continue;
+      }
+      if (other is! TablePart) continue;
+      final key = (other, ball);
       final prev = _hits[key];
       if (prev == null || hit.approachSpeed > prev.$1) {
-        _hits[key] = (hit.approachSpeed, h.$3);
+        _hits[key] = (hit.approachSpeed, normal);
       }
+    }
+    for (final MapEntry(key: ball, value: (_, other, normal))
+        in _rebounds.entries) {
+      if (ball.isCaptured) continue;
+      final pre = ball.preVelocity;
+      ball.body.linearVelocity = switch (other) {
+        final Flipper f => OriginalCollision.flipper(
+          f,
+          pre,
+          normal,
+          ball.body.position,
+          ball.radius,
+        ),
+        _ => () {
+          final m = switch (other) {
+            final TablePart p => p.visual.material,
+            'plunger' => OriginalCollision.plungerMaterial,
+            _ => OriginalCollision.tableMaterial,
+          };
+          return OriginalCollision.rebound(
+            pre,
+            normal,
+            m.elasticity,
+            m.smoothness,
+          );
+        }(),
+      };
     }
     for (final MapEntry(key: (part, ball), value: (speed, normal))
         in _hits.entries) {

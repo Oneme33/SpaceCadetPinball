@@ -13,6 +13,7 @@ void main() {
   late PhysicsWorld physics;
   late PinballBall ball;
   late List<PinballBall> relaunched;
+  var t = 0.0;
 
   StuckBallGuard guard({List<Rect> rest = const []}) => StuckBallGuard(
     restAreas: rest,
@@ -22,17 +23,19 @@ void main() {
 
   setUp(() {
     physics = PhysicsWorld(gravity: const (0, 12));
-    // A narrow V-shaped pit the ball cannot climb out of with small pushes.
+    // A slot just wider than the ball, too deep to climb out of with small
+    // pushes.
     physics.world
         .createBody(BodyDef())
         .createChain(
           ChainDef(
             isLoop: true,
             points: [
-              Vector2(0, 0.3),
-              Vector2(3, -3),
-              Vector2(0, -3),
-              Vector2(-3, -3),
+              Vector2(0, 0.31),
+              Vector2(0.31, 0.31),
+              Vector2(0.31, -3),
+              Vector2(-0.31, -3),
+              Vector2(-0.31, 0.31),
             ],
           ),
         );
@@ -44,12 +47,12 @@ void main() {
       gravityMult: 0.2,
     );
     relaunched = [];
+    t = 0;
   });
 
   tearDown(() => physics.destroy());
 
   void run(StuckBallGuard g, double seconds) {
-    var t = 0.0;
     for (var i = 0; i < seconds * 60; i++) {
       physics.advance(1 / 60);
       t += 1 / 60;
@@ -57,9 +60,13 @@ void main() {
     }
   }
 
-  test('a ball stuck in a pit is relaunched', () {
+  test('a ball stuck in a pit is pushed for ten seconds, then relaunched', () {
     final g = guard();
-    run(g, 5);
+    // One push per half second of standing still, 21 of them: as the
+    // original, not one per frame.
+    run(g, 9);
+    expect(relaunched, isEmpty);
+    run(g, 3);
     expect(relaunched, [ball]);
   });
 

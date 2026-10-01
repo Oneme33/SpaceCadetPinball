@@ -52,9 +52,8 @@ class FlipperSpec {
   /// Seconds from rest to fully extended, and back (3D Pinball format).
   final double extendTime, retractTime;
 
-  /// TODO: VERIFY AGAINST ORIGINAL SPACE CADET — the original scales the
-  /// ball's rebound off a moving flipper by this; Box2D's kinematic contact
-  /// handles momentum itself. Revisit when tuning (Phase 8).
+  /// Scales the boost a moving flipper gives the ball
+  /// (`TFlipperEdge::EdgeCollision`, applied in `OriginalCollision`).
   final double collisionMult;
 
   final dat.Material material;

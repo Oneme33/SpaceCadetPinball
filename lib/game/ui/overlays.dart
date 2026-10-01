@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../rules/original_rules.dart';
+import '../rules/score_manager.dart';
 import '../space_cadet_game.dart';
 import 'cadet_flights.dart';
 
@@ -87,9 +89,11 @@ class _PauseMenu extends StatefulWidget {
   State<_PauseMenu> createState() => _PauseMenuState();
 }
 
+enum _Page { menu, guide, scores }
+
 class _PauseMenuState extends State<_PauseMenu> {
   bool _loadingHd = false;
-  bool _guide = false;
+  _Page _page = _Page.menu;
 
   SpaceCadetGame get game => widget.game;
 
@@ -106,8 +110,12 @@ class _PauseMenuState extends State<_PauseMenu> {
       child: SafeArea(
         child: Center(
           child: _Frame(
-            width: _guide ? 460 : 320,
-            child: _guide ? _guidePage() : _menu(),
+            width: _page == _Page.guide ? 460 : 320,
+            child: switch (_page) {
+              _Page.menu => _menu(),
+              _Page.guide => _guidePage(),
+              _Page.scores => _scoresPage(),
+            },
           ),
         ),
       ),
@@ -143,7 +151,23 @@ class _PauseMenuState extends State<_PauseMenu> {
             ),
           ],
         ),
-        _Row(label: 'How to Play', onTap: () => setState(() => _guide = true)),
+        Row(
+          children: [
+            Expanded(
+              child: _Row(
+                label: 'How to Play',
+                onTap: () => setState(() => _page = _Page.guide),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: _Row(
+                label: 'High Scores',
+                onTap: () => setState(() => _page = _Page.scores),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 10),
         _Row(
           label: 'Mode',
@@ -226,7 +250,68 @@ class _PauseMenuState extends State<_PauseMenu> {
           ),
         ),
         const SizedBox(height: 10),
-        _Row(label: 'Back', onTap: () => setState(() => _guide = false)),
+        _Row(label: 'Back', onTap: () => setState(() => _page = _Page.menu)),
+      ],
+    );
+  }
+
+  /// The top five of both tables, as kept between sessions. The original
+  /// shows its table in a dialog; names are not asked here.
+  Widget _scoresPage() {
+    final s = game.settings;
+    Widget table(String title, List<int> scores) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: _Panel(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(title, style: _label.copyWith(color: _blue)),
+              const SizedBox(height: 6),
+              for (var i = 0; i < OriginalRules.highScoreCount; i++)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 24,
+                        child: Text('${i + 1}.', style: _label),
+                      ),
+                      Expanded(
+                        child: Text(
+                          i < scores.length
+                              ? ScoreManager.format(scores[i])
+                              : '—',
+                          textAlign: TextAlign.right,
+                          style: _label.copyWith(
+                            color: i < scores.length ? _white : _grey,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'HIGH SCORES',
+          textAlign: TextAlign.center,
+          style: _label.copyWith(color: _red, letterSpacing: 2),
+        ),
+        const SizedBox(height: 10),
+        table('Normal', s.highScoresFor(easy: false)),
+        table('Easy', s.highScoresFor(easy: true)),
+        const SizedBox(height: 10),
+        _Row(label: 'Back', onTap: () => setState(() => _page = _Page.menu)),
       ],
     );
   }

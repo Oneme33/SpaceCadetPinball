@@ -34,6 +34,9 @@ class OriginalRules extends _RulesBase
     super.random,
   });
 
+  /// Length of the high score table.
+  static const highScoreCount = _RulesBase.highScoreCount;
+
   /// `control::handler`.
   void handler(int code, TablePart? part) {
     if (part != null) {

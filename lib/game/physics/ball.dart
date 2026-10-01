@@ -64,6 +64,10 @@ class PinballBall {
   /// Position before the current step, for trigger lines.
   double prevX, prevY;
 
+  /// Velocity at the start of the current step, for the original's
+  /// collision response.
+  final Vector2 preVelocity = Vector2.zero();
+
   /// Acceleration from extra fields (ramps, kickouts), summed per step.
   final Vector2 fieldAccel = Vector2.zero();
 

@@ -17,6 +17,9 @@ class PhysicsWorld {
         definition: WorldDef(
           enableContinuous: true,
           maximumLinearSpeed: maxSpeed,
+          // Nearly every impact is a hit, so it gets the original's
+          // response; only resting contact stays below this.
+          hitEventThreshold: 0.1,
         ),
       ) {
     _stepper = FixedStepper(

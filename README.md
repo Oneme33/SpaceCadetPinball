@@ -53,7 +53,8 @@ v0.2.5.0, `realesrgan-ncnn-vulkan` for your platform). The result lands in
 ## Pause menu and settings
 
 Esc, P or a tap on the scoreboard opens it: resume, new game, a "How to
-Play" guide (written from the ported rules), mode (Normal/Easy), graphics
+Play" guide (written from the ported rules), the high scores (normal and
+easy), mode (Normal/Easy), graphics
 (Classic/HD), sound on/off and, on phones, haptics on/off. It is styled
 after the scoreboard. Settings and the high score tables are kept between
 sessions.
@@ -179,7 +180,8 @@ events, so they can be tested without rendering.
 | Ball radius, top speed | 0.3, 60 (200 radii/s) | `ball` 500, `pb::BallMaxSpeed` |
 | Flippers | pivot, tip radii, 0.04 s up, 0.08 s down | attributes 800–805 |
 | Plunger | +1 per 25 ms up to 100, +0–10 % random | `TPlunger` |
-| Wall restitution, friction | per wall from elasticity/smoothness | materials (300 → 301/302) |
+| Rebound | the original's own response per hit, from elasticity/smoothness | `maths::basic_collision`, materials (300 → 301/302) |
+| Flipper hit | rebound + collisionMult · ω · (distance ÷ length) along the normal | `TFlipperEdge::EdgeCollision` |
 | Next ball | 1.82 s after drain + 0.96 s feed | `drain` 407, `TPlunger` |
 | Kickers | per component threshold and boost (bumpers 17/12, slingshots 18, targets 5, kickbacks 55) | kicker groups (400 → 401/402) |
 | Ramps | 18 + 2 planes with slope gravity, layer 1 → 2 → 4 | `ramp`, `s_ramp9` (1300–1305) |
@@ -252,6 +254,36 @@ nnn − 101), extracted by the install tool.
 Not yet: more than one player, music (MIDI), the attract-mode demo, and
 bumping the table on touch screens.
 
+### Phase 8: measured against the original
+
+The decompiled original runs headless next to the port (`tool/compare/`,
+see its README): same scenarios, same PINBALL.DAT, ball tracks side by
+side. What that showed and changed:
+
+- **Collision response.** Box2D's restitution and friction are not the
+  original's. In 3D Pinball a ball sliding along a wall loses nothing
+  (smoothness only steers the rebound) and an oblique hit loses
+  (1 − elasticity) of its approach. Box2D now only keeps the ball out of
+  the walls; every hit gets the original's `basic_collision`, flipper hits
+  `TFlipperEdge::EdgeCollision` with its boost, ball against ball
+  `TBall::EdgeCollision`. Flipper shots went from 17/20/25 to 20/33/44
+  (early, mid, late flip; the original gives 18–22/25–32/46–52 between 60
+  and 240 Hz), and a ball rolling down a flipper now does so at the
+  original's speed.
+- **Stuck ball.** The rescue pushed a slow ball every frame and relaunched
+  it after a third of a second (the original's next frame sees the push
+  and waits another half second). Now a push per half second standing
+  still, a relaunch after about ten seconds, as the original.
+- **Matching already:** gravity and braking (free fall within 0.13 after
+  1 s), slingshots (19.0 vs 18.8), bumpers (20.7 vs 20.7 head-on), the
+  plunger (full and short pulls), ramp entry (upper level from 20–25).
+- **Original's own quirk, not copied:** at 120 Hz about a third of very
+  short plunger taps do not launch at all (the ball is mid-bounce during
+  the 25 ms window); at 240 Hz none miss.
+
+Tracks still part after 0.5–2 s, as two runs of any pinball do: near two
+bumpers a hundredth of a second decides the next bounce.
+
 ### Open points to check against the original
 
 - A ramp shot that only just makes the top can come to rest on the upper
@@ -269,4 +301,4 @@ bumping the table on touch screens.
 | 5 | Scoring, scoreboard, sound, lights | done |
 | 6 | Space Cadet rules and missions | done |
 | 7 | HD graphics, menu, haptics, tilt, high scores, stuck ball | done |
-| 8 | Tuning against the original | |
+| 8 | Tuning against the original | measured, collision and stuck ball fixed; continuing |

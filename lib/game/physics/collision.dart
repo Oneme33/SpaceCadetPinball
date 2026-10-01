@@ -22,24 +22,13 @@ abstract final class Collision {
   static Filter ball(int layers) =>
       Filter(categoryBits: ballCategory, maskBits: layers);
 
-  /// The original's material on the wall side of a contact.
-  ///
-  /// Elasticity is a restitution coefficient. Smoothness is how much of the
-  /// tangential speed survives a hit, so friction is roughly its
-  /// complement. Box2D mixes friction as sqrt(a·b) and restitution as
-  /// max(a, b); the ball uses friction 1 and restitution 0, so walls store
-  /// friction squared to come out at (1 − smoothness).
-  ///
-  /// TODO: VERIFY AGAINST ORIGINAL SPACE CADET — tune in Phase 8; the
-  /// original's collision response is not a Coulomb model.
-  static SurfaceMaterial material(dat.Material m) {
-    final friction = 1 - m.smoothness;
-    return SurfaceMaterial(
-      restitution: m.elasticity,
-      friction: friction * friction,
-    );
-  }
+  /// Box2D's own response is switched off: no restitution, no friction,
+  /// so a contact only stops the ball's approach. The table then applies
+  /// the original's response to every hit (`OriginalCollision`), from the
+  /// wall's DAT material.
+  static SurfaceMaterial material(dat.Material m) =>
+      SurfaceMaterial(restitution: 0, friction: 0);
 
   static SurfaceMaterial get ballMaterial =>
-      SurfaceMaterial(restitution: 0, friction: 1);
+      SurfaceMaterial(restitution: 0, friction: 0);
 }
