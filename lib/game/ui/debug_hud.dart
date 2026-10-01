@@ -51,7 +51,7 @@ class DebugHud extends PositionComponent {
         'FPS ${_fps.fps.toStringAsFixed(0)}  '
         'physics ${stepRate.toStringAsFixed(0)} Hz  '
         '${game.gameState.phase.name}\n'
-        'ball ${game.ballManager.ballNumber ?? '–'}/${game.ballManager.maxBalls}  '
+        'balls ${game.rules.t.ballCount} in play ${game.table.multiballCount}  '
         'speed ${_speed()} u/s  plunger ${game.table.plunger.boost.toStringAsFixed(0)}  '
         'held: $held\n'
         '${_pointer()}  click = place ball, G = walls\n'

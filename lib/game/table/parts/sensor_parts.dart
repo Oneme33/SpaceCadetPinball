@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import '../../../dat/pinball_data.dart' as dat;
 import '../../physics/ball.dart';
 import 'part.dart';
+import '../../rules/message_code.dart';
 
 /// `TRollover` / `TLightRollover`: a lane switch the ball rolls over. It
 /// fires when the ball centre enters its area (attribute 600) and re-arms
@@ -35,7 +36,7 @@ class RolloverPart extends TablePart {
       frame = isLight ? 0 : -1;
       if (_lightTimer case final t?) ctx.timers.cancel(t);
       sound(visual.softHitSound);
-      emit(PartEventKind.collision);
+      emit(MC.controlCollision);
     } else if (!inside && _inside.remove(ball)) {
       if (isLight) {
         _lightTimer = ctx.timers.set(lightDelay, () => frame = -1);
@@ -73,7 +74,7 @@ class TripwirePart extends TablePart {
   void checkBall(PinballBall ball) {
     if (_line.crossedBy(ball)) {
       sound(visual.softHitSound);
-      emit(PartEventKind.collision);
+      emit(MC.controlCollision);
     }
   }
 }
@@ -124,8 +125,8 @@ class SpinnerPart extends TablePart {
     _timer = null;
     frame = (frame + _direction) % frames;
     sound(visual.softHitSound);
-    emit(PartEventKind.collision);
-    if (frame == 0) emit(PartEventKind.spinnerLoopReset);
+    emit(MC.controlCollision);
+    if (frame == 0) emit(MC.controlSpinnerLoopReset);
     _speed *= speedDecrement;
     if (_speed >= minSpeed) _timer = ctx.timers.set(1 / _speed, _nextFrame);
   }
@@ -142,9 +143,8 @@ class SpinnerPart extends TablePart {
 /// (attribute 305); within the capture radius (306 × radius) it holds the
 /// ball, sunk to height 408, and throws it out again with its kicker.
 ///
-/// TODO: VERIFY AGAINST ORIGINAL SPACE CADET — the rules decide how long a
-/// ball is held (`TKickoutRestartTimer`, Phase 6). Until then the
-/// component's own default applies: 1.5 s.
+/// The rules decide how long a ball is held (`TKickoutRestartTimer`);
+/// −1 means the default of 1.5 s.
 class KickoutPart extends TablePart {
   KickoutPart(super.ctx, super.component, {required this.lit})
     : _circle = component.states.first.walls.first as dat.WallCircle,
@@ -193,8 +193,33 @@ class KickoutPart extends TablePart {
     _held = ball;
     ball.capture(this, _circle.x, _circle.y, z: captureZ);
     sound(visual.softHitSound);
-    emit(PartEventKind.collision);
-    ctx.timers.set(holdTime, eject);
+    emit(MC.controlCollision);
+  }
+
+  int? _ejectTimer;
+
+  /// `TKickout::Message`: the rules decide when the ball comes out.
+  @override
+  int message(int code, double value) {
+    switch (code) {
+      case MC.tKickoutRestartTimer:
+        if (_held != null) {
+          if (_ejectTimer case final t?) ctx.timers.cancel(t);
+          _ejectTimer = ctx.timers.set(value < 0 ? holdTime : value, () {
+            _ejectTimer = null;
+            eject();
+          });
+        }
+      case MC.setTiltLock:
+        if (!lit) active = false;
+      case MC.reset:
+        if (_held != null) {
+          if (_ejectTimer case final t?) ctx.timers.cancel(t);
+          eject();
+        }
+        if (!lit) active = false;
+    }
+    return 0;
   }
 
   void eject() {
@@ -213,14 +238,15 @@ class KickoutPart extends TablePart {
     eject();
     active = lit;
   }
+
+  bool get holdsBall => _held != null;
 }
 
 /// `TSink`: a wormhole. The ball disappears and comes back out of the sink
 /// at attribute 601 after its timer (407), thrown by its kicker.
 ///
-/// TODO: VERIFY AGAINST ORIGINAL SPACE CADET — the rules pick which
-/// wormhole the ball comes out of and when (Phase 6). Until then it comes
-/// out of the one it went into.
+/// The rules pick which wormhole the ball comes out of and when
+/// (`TSinkResetTimer`, `WormHoleControl`).
 class SinkPart extends TablePart {
   SinkPart(super.ctx, super.component)
     : timerTime = component.attributes[407]?.first ?? 2,
@@ -246,8 +272,28 @@ class SinkPart extends TablePart {
     if (!_line.crossedBy(ball)) return;
     ctx.removeBall(ball);
     sound(visual.sound4);
-    emit(PartEventKind.collision);
-    ctx.timers.set(timerTime, eject);
+    emit(MC.controlCollision);
+  }
+
+  int? _ejectTimer;
+
+  /// `TSink::Message`: the rules decide where and when the ball comes out.
+  @override
+  int message(int code, double value) {
+    switch (code) {
+      case MC.tSinkResetTimer:
+        if (_ejectTimer case final t?) ctx.timers.cancel(t);
+        _ejectTimer = ctx.timers.set(value < 0 ? timerTime : value, () {
+          _ejectTimer = null;
+          eject();
+        });
+      case MC.playerChanged:
+      case MC.reset:
+        if (_ejectTimer case final t?) ctx.timers.cancel(t);
+        _ejectTimer = null;
+        messageField = 0;
+    }
+    return 0;
   }
 
   void eject() {
@@ -306,7 +352,7 @@ class HolePart extends TablePart {
     _held = ball;
     ball.capture(this, _circle.x, _circle.y);
     sound(visual.hardHitSound);
-    emit(PartEventKind.ballCaptured);
+    emit(MC.controlBallCaptured);
     ctx.timers.set(holdTime, _drop);
   }
 
@@ -330,6 +376,6 @@ class HolePart extends TablePart {
       ..layers = targetLayers
       ..release(0, 0, z: dropZ);
     sound(visual.softHitSound);
-    emit(PartEventKind.ballReleased);
+    emit(MC.controlBallReleased);
   }
 }

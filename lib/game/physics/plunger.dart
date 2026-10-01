@@ -51,6 +51,10 @@ class Plunger {
   late final double pullbackIncrement = (maxPullback / (frames * 8))
       .floorToDouble();
 
+  /// Balls to launch by themselves (`TPlunger::SomeCounter`): the next
+  /// ball that settles on the plunger goes up at full strength.
+  int autoLaunches = 0;
+
   bool _pulling = false;
   double boost = 0;
   double _pullTimer = 0;
@@ -82,6 +86,15 @@ class Plunger {
 
   /// Returns true when [ball] was launched this step.
   bool beforeStep(double dt, Iterable<PinballBall> balls) {
+    if (autoLaunches > 0 && !_pulling) {
+      for (final ball in balls) {
+        if (!touches(ball)) continue;
+        final kick = maxPullback + _random.nextDouble() * maxPullback * 0.1;
+        ball.body.linearVelocity = ball.body.linearVelocity + _normal * kick;
+        autoLaunches--;
+        return true;
+      }
+    }
     if (_pulling) {
       _pullTimer += dt;
       while (_pullTimer >= pullbackDelay && boost < maxPullback) {

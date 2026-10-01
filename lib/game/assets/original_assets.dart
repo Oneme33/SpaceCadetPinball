@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flame/extensions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -11,7 +13,33 @@ import '../../dat/pinball_data.dart';
 /// (git-ignored). When it is missing, [load] returns null and the game shows
 /// labelled placeholders instead.
 class OriginalAssets {
-  OriginalAssets._(this.data, this.table, this.scoreboard, this.ballSprites);
+  OriginalAssets._(
+    this.strings,
+    this.soundDurations,
+    this.data,
+    this.table,
+    this.scoreboard,
+    this.ballSprites,
+  );
+
+  /// The game's messages from Pinball.exe, by resource id.
+  final Map<int, String> strings;
+
+  /// Length in seconds per sound record, from the WAV headers, as
+  /// `loader::get_sound_id` computes it.
+  final Map<int, double> soundDurations;
+
+  /// Seconds of audio in a WAV file: data size / (channels · bytes per
+  /// sample) / sample rate. −1 when the header is not understood.
+  static double wavDuration(ByteData b) {
+    if (b.lengthInBytes < 44) return -1;
+    final channels = b.getUint16(22, Endian.little);
+    final rate = b.getUint32(24, Endian.little);
+    final bits = b.getUint16(34, Endian.little);
+    final dataSize = b.getUint32(40, Endian.little);
+    if (channels == 0 || rate == 0 || bits == 0) return -1;
+    return dataSize / (channels * bits / 8) / rate;
+  }
 
   static const datAsset = 'assets/original/PINBALL.DAT';
 
@@ -81,11 +109,34 @@ class OriginalAssets {
       return null;
     }
     final data = PinballData.parse(bytes);
+    var strings = const <int, String>{};
+    try {
+      final json = await (bundle ?? rootBundle).loadString(
+        'assets/original/strings.json',
+      );
+      strings = {
+        for (final e in (jsonDecode(json) as Map<String, dynamic>).entries)
+          int.parse(e.key): e.value as String,
+      };
+    } on Object {
+      debugPrint('Messages not installed; run tool/install_originals.dart.');
+    }
+    final durations = <int, double>{};
+    for (final MapEntry(key: group, value: file) in data.soundFiles.entries) {
+      try {
+        final b = await (bundle ?? rootBundle).load('assets/original/$file');
+        durations[group] = wavDuration(b);
+      } on Object {
+        // Missing: unknown length.
+      }
+    }
     final palette = data.palette;
     Future<Image> image(Bitmap8 b) =>
         ImageExtension.fromPixels(b.toRgba(palette), b.width, b.height);
 
     return OriginalAssets._(
+      strings,
+      durations,
       data,
       await image(data.tableBitmap),
       await image(data.scoreboardBitmap),

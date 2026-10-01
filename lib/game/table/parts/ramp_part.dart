@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import '../../physics/ball.dart';
 import '../../physics/ramp_plane.dart';
 import 'part.dart';
+import '../../rules/message_code.dart';
 
 /// `TRamp`: a raised track built from triangular planes (attribute 1300).
 ///
@@ -133,7 +134,7 @@ class RampPart extends TablePart {
   void checkBall(PinballBall ball) {
     if (_entry.crossedBy(ball)) {
       sound(visual.softHitSound);
-      emit(PartEventKind.collision);
+      emit(MC.controlCollision);
     }
     for (final (line, layers, offset) in _exits) {
       if (_owns(ball) && line.crossedBy(ball)) {

@@ -6,6 +6,7 @@ import '../../../dat/pinball_data.dart' as dat;
 import '../../physics/ball.dart';
 import '../../physics/collision.dart';
 import '../../physics/table_walls.dart';
+import '../../rules/message_code.dart';
 import 'part.dart';
 
 /// A part with solid walls on its own static body, so it can be switched
@@ -67,7 +68,7 @@ class WallPart extends SolidPart {
       frame = 0;
       ctx.timers.set(0.1, () => frame = -1);
     }
-    emit(PartEventKind.collision);
+    emit(MC.controlCollision);
   }
 }
 
@@ -90,13 +91,8 @@ class BumperPart extends SolidPart {
       return;
     }
     if (!defaultCollision(ball, approachSpeed, normal)) return;
-    _lit = true;
-    frame = 2 * bmpIndex + 1;
-    ctx.timers.set(timerTime, () {
-      _lit = false;
-      frame = 2 * bmpIndex;
-    });
-    emit(PartEventKind.collision);
+    _fire();
+    emit(MC.controlCollision);
   }
 
   /// `TBumperSetBmpIndex`: 0 … (frames − 1) / 2.
@@ -104,6 +100,39 @@ class BumperPart extends SolidPart {
     final max = (component.states.length - 1) ~/ 2;
     bmpIndex = level.clamp(0, max);
     frame = 2 * bmpIndex + (_lit ? 1 : 0);
+  }
+
+  @override
+  int message(int code, double value) {
+    switch (code) {
+      case MC.tBumperSetBmpIndex:
+        final max = (component.states.length - 1) ~/ 2;
+        final next = value.floor().clamp(0, max);
+        if (next != bmpIndex) {
+          sound(next > bmpIndex ? visual.sound4 : visual.sound3);
+          bmpIndex = next;
+          _fire();
+          emit(MC.tBumperSetBmpIndex);
+        }
+      case MC.tBumperIncBmpIndex:
+        message(MC.tBumperSetBmpIndex, (bmpIndex + 1).toDouble());
+      case MC.tBumperDecBmpIndex:
+        message(MC.tBumperSetBmpIndex, (bmpIndex - 1).toDouble());
+      case MC.reset:
+        messageField = 0;
+        reset();
+    }
+    return 0;
+  }
+
+  /// `TBumper::Fire`: lit for its timer, hits ignored meanwhile.
+  void _fire() {
+    _lit = true;
+    frame = 2 * bmpIndex + 1;
+    ctx.timers.set(timerTime, () {
+      _lit = false;
+      frame = 2 * bmpIndex;
+    });
   }
 
   @override
@@ -132,7 +161,7 @@ class PopupTargetPart extends SolidPart {
     TablePart.kick(ball, approachSpeed, normal, kicker.threshold, kicker.boost);
     sound(visual.hardHitSound);
     drop();
-    emit(PartEventKind.collision);
+    emit(MC.controlCollision);
   }
 
   void drop() {
@@ -159,6 +188,20 @@ class PopupTargetPart extends SolidPart {
     if (_raiseTimer case final t?) ctx.timers.cancel(t);
     _up();
   }
+
+  @override
+  int message(int code, double value) {
+    switch (code) {
+      case MC.tPopupTargetDisable:
+        drop();
+      case MC.tPopupTargetEnable:
+        raise();
+      case MC.reset:
+        messageField = 0;
+        reset();
+    }
+    return 0;
+  }
 }
 
 /// `TSoloTarget`: kicks, goes down for 0.1 s, comes back by itself.
@@ -170,7 +213,7 @@ class SoloTargetPart extends SolidPart {
     if (!active || !defaultCollision(ball, approachSpeed, normal)) return;
     _set(false);
     ctx.timers.set(0.1, () => _set(true));
-    emit(PartEventKind.collision);
+    emit(MC.controlCollision);
   }
 
   void _set(bool on) {
@@ -180,6 +223,20 @@ class SoloTargetPart extends SolidPart {
 
   @override
   void reset() => _set(true);
+
+  @override
+  int message(int code, double value) {
+    switch (code) {
+      case MC.tSoloTargetDisable:
+        _set(false);
+      case MC.tSoloTargetEnable:
+        _set(true);
+      case MC.reset:
+        messageField = 0;
+        reset();
+    }
+    return 0;
+  }
 }
 
 /// `TGate`: closed (solid, sprite shown) until the rules open it.
@@ -204,6 +261,22 @@ class GatePart extends SolidPart {
 
   @override
   void reset() => _close();
+
+  /// `TGate::Message`: every message is also reported to the rules.
+  @override
+  int message(int code, double value) {
+    switch (code) {
+      case MC.tGateDisable:
+        open();
+      case MC.tGateEnable:
+        close();
+      case MC.reset:
+        messageField = 0;
+        _close();
+    }
+    emit(code);
+    return 0;
+  }
 }
 
 /// `TBlocker`: the centre post between the flippers. Off until the rules
@@ -212,6 +285,10 @@ class BlockerPart extends SolidPart {
   BlockerPart(super.ctx, super.component) : super(active: false) {
     frame = -1;
   }
+
+  /// `TBlocker`: up for 55 s, then 5 s more while flashing.
+  final double initialDuration = 55;
+  final double extendedDuration = 5;
 
   int? _timer;
 
@@ -223,7 +300,7 @@ class BlockerPart extends SolidPart {
     if (seconds != null) {
       _timer = ctx.timers.set(seconds, () {
         _timer = null;
-        emit(PartEventKind.timerExpired);
+        emit(MC.controlTimerExpired);
       });
     }
   }
@@ -246,6 +323,28 @@ class BlockerPart extends SolidPart {
 
   @override
   void reset() => _lower();
+
+  @override
+  int message(int code, double value) {
+    switch (code) {
+      case MC.tBlockerEnable:
+        raise(seconds: value >= 0 ? value : null);
+      case MC.tBlockerDisable:
+        lower();
+      case MC.tBlockerRestartTimeout:
+        _cancel();
+        _timer = ctx.timers.set(value < 0 ? 0 : value, () {
+          _timer = null;
+          emit(MC.controlTimerExpired);
+        });
+      case MC.setTiltLock:
+      case MC.playerChanged:
+      case MC.reset:
+        messageField = 0;
+        _lower();
+    }
+    return 0;
+  }
 }
 
 /// `TKickback`: a floor at the bottom of an outlane. A ball that lands on
@@ -289,7 +388,7 @@ class KickbackPart extends SolidPart {
     ctx.timers.set(timerTime2, () {
       frame = 0;
       _armed = false;
-      emit(PartEventKind.timerExpired);
+      emit(MC.controlTimerExpired);
     });
   }
 
@@ -333,7 +432,7 @@ class OnewayPart extends SolidPart {
   void checkBall(PinballBall ball) {
     if (_pass.crossedBy(ball)) {
       sound(visual.hardHitSound);
-      emit(PartEventKind.collision);
+      emit(MC.controlCollision);
     }
   }
 

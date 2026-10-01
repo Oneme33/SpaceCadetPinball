@@ -1,3 +1,4 @@
+import '../../rules/message_code.dart';
 import 'part.dart';
 
 /// `TLight`: an insert light. Off shows nothing (sprite −1), on shows its
@@ -48,6 +49,73 @@ class LightPart extends TablePart {
   }
 
   // --- Messages ------------------------------------------------------------
+
+  /// `TLight::Message`.
+  @override
+  int message(int code, double value) {
+    switch (code) {
+      case MC.reset:
+        reset();
+        messageField = 0;
+      case MC.tLightTurnOff:
+        turnOff();
+      case MC.tLightTurnOn:
+        turnOn();
+      case MC.tLightGetLightOnFlag:
+        return lightOn ? 1 : 0;
+      case MC.tLightGetFlasherOnFlag:
+        return flasherOn ? 1 : 0;
+      case MC.tLightFlasherStart:
+        flasherStart();
+      case MC.tLightApplyMultDelay:
+        applyDelayMultiplier(value);
+      case MC.tLightApplyDelay:
+        applyDelayMultiplier(1);
+      case MC.tLightFlasherStartTimed:
+        flasherStartTimed(value);
+      case MC.tLightTurnOffTimed:
+        turnOffTimed(value);
+      case MC.tLightTurnOnTimed:
+        turnOnTimed(value);
+      case MC.tLightSetOnStateBmpIndex:
+        setOnStateBitmap(value.floor());
+      case MC.tLightIncOnStateBmpIndex:
+        setOnStateBitmap(onStateBitmap + 1);
+      case MC.tLightDecOnStateBmpIndex:
+        setOnStateBitmap(onStateBitmap - 1);
+      case MC.tLightResetTimed:
+        resetTimed();
+      case MC.tLightFlasherStartTimedThenStayOn:
+        flasherStartTimedThenStayOn(value);
+      case MC.tLightFlasherStartTimedThenStayOff:
+        flasherStartTimedThenStayOff(value);
+      case MC.tLightToggleValue:
+        setOn(value.floor() != 0);
+        return lightOn ? 1 : 0;
+      case MC.tLightResetAndToggleValue:
+        setOn(value.floor() != 0);
+        resetTimed();
+        return lightOn ? 1 : 0;
+      case MC.tLightResetAndTurnOn:
+        resetAndTurnOn();
+      case MC.tLightResetAndTurnOff:
+        resetAndTurnOff();
+      case MC.tLightToggle:
+        setOn(!lightOn);
+        return lightOn ? 1 : 0;
+      case MC.tLightResetAndToggle:
+        setOn(!lightOn);
+        resetTimed();
+        return lightOn ? 1 : 0;
+      case MC.tLightSetMessageField:
+        messageField = value.floor();
+    }
+    return 0;
+  }
+
+  /// Whether a TLightToggled flag is set (used by light groups).
+  bool get toggledOn => _toggledOn;
+  bool get toggledOff => _toggledOff;
 
   void turnOn() {
     lightOn = true;
@@ -175,7 +243,7 @@ class LightPart extends TablePart {
       _turnOffAfterFlashing = false;
       resetAndTurnOff();
     }
-    emit(PartEventKind.timerExpired);
+    emit(MC.controlTimerExpired);
   }
 
   void _startFlasher(bool lit) {

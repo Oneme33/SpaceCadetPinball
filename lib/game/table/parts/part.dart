@@ -5,33 +5,18 @@ import 'package:forge2d/forge2d.dart';
 import '../../../dat/pinball_data.dart' as dat;
 import '../../gameplay/game_timers.dart';
 import '../../physics/ball.dart';
+import '../../rules/message_code.dart';
 
-/// What a part tells the rules, after the original's `control::handler`
-/// message codes.
-enum PartEventKind {
-  /// `ControlCollision`: hit, rolled over, crossed, captured…
-  collision,
-
-  /// `ControlBallCaptured`: a hole took the ball.
-  ballCaptured,
-
-  /// `ControlBallReleased`: a hole let the ball go on a new level.
-  ballReleased,
-
-  /// `ControlTimerExpired`: e.g. a kickback finished its cycle.
-  timerExpired,
-
-  /// `ControlSpinnerLoopReset`: a spinner completed a full turn.
-  spinnerLoopReset,
-}
-
+/// What a part tells the rules: `control::handler(code, component)`.
+/// [code] is an [MC] code, e.g. [MC.controlCollision] for a hit, a
+/// rollover or a capture, [MC.controlTimerExpired] after a timed cycle.
 class PartEvent {
-  const PartEvent(this.part, this.kind);
+  const PartEvent(this.part, this.code);
   final TablePart part;
-  final PartEventKind kind;
+  final int code;
 
   @override
-  String toString() => '${part.name}: ${kind.name}';
+  String toString() => '${part.name}: $code';
 }
 
 /// Everything a part may touch. Owned by [SpaceCadetTable].
@@ -47,6 +32,8 @@ class PartContext {
     required this.addBall,
     required this.removeBall,
     required this.playSound,
+    required this.soundDuration,
+    required this.partByGroup,
   });
 
   final World world;
@@ -67,6 +54,13 @@ class PartContext {
 
   /// Plays a sound record (null: none).
   final void Function(int? soundGroup) playSound;
+
+  /// Length of a sound record in seconds, −1 when unknown
+  /// (`loader::play_sound`'s return value).
+  final double Function(int? soundGroup) soundDuration;
+
+  /// The part built from DAT group [group] (`find_component`).
+  final TablePart? Function(int group) partByGroup;
 }
 
 /// A runtime table component: the counterpart of the original's
@@ -84,6 +78,19 @@ abstract class TablePart {
   /// Sprite frame to draw, -1 for none (`SpriteSet`).
   int frame = 0;
 
+  /// Free storage for the rules (`TPinballComponent::MessageField`).
+  int messageField = 0;
+
+  /// The original's `Message(code, value)`: [MC] codes, interpreted per
+  /// component type. Returns the original's return value.
+  int message(int code, double value) {
+    if (code == MC.reset) {
+      messageField = 0;
+      reset();
+    }
+    return 0;
+  }
+
   /// Adds this part's field acceleration to [ball] (`FieldEffect`).
   void field(PinballBall ball) {}
 
@@ -98,7 +105,7 @@ abstract class TablePart {
   /// New game (`MessageCode::Reset`).
   void reset() {}
 
-  void emit(PartEventKind kind) => ctx.emit(PartEvent(this, kind));
+  void emit(int code) => ctx.emit(PartEvent(this, code));
 
   void sound(int? group) => ctx.playSound(group);
 

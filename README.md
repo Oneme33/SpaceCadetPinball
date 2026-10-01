@@ -11,7 +11,9 @@ and install them; see [docs/ASSETS.md](docs/ASSETS.md):
 dart run tool/install_originals.dart original/
 ```
 
-Without them the game runs with labelled placeholders.
+This also reads the game's messages from your `Pinball.exe` (put it in
+`original/` too). Without the originals the game runs with labelled
+placeholders.
 
 ## Run
 
@@ -68,7 +70,9 @@ lib/
     gameplay/                   pure Dart: ball count, game timers
     rules/
       score_manager.dart        AddScore: multipliers 1/2/3/5/10, jackpot, bonus
-      control.dart              control.cpp, ported function by function
+      message_code.dart         the original MessageCode values
+      original_rules.dart       game flow (TPinballTable::Message), helpers
+      original_rules_port.dart  control.cpp, ported function by function
     audio/audio_manager.dart    original WAVs via flutter_soloud, 8 voices
     physics/
       physics_world.dart        Box2D world in table space, before/after-step hooks
@@ -87,6 +91,8 @@ lib/
         sensor_parts.dart       rollovers, tripwires, spinners, kickouts, wormholes, ramp hole
         ramp_part.dart          ramps: planes, slope gravity, layer changes, ball height
         light_part.dart         TLight: on/off, timed, flashing (900/901)
+        group_parts.dart        TLightGroup, TLightBargraph (fuel), TComponentGroup, TSound
+        table_proxies.dart      drain, plunger, flippers, message boxes as the rules see them
       table_layout.dart         element map in table space
       table_sprites.dart        component sprites, balls, placeholder parts
       table_projection.dart     table space → screen space (interface + flat fallback)
@@ -158,14 +164,32 @@ their own defaults.
 - All 140 lights work as `TLight` (on/off, timed, flashing). What lights
   them is the rules' job: so far only the slingshot lights.
 
+### The rules (Phase 6)
+
+`control.cpp` from the decompilation is ported in full: all 88 component
+control functions, `MissionControl` and the mission controllers (17
+missions, 9 ranks), fuel, hyperspace, wormholes, the gravity well,
+re-deploy (ball save), extra balls, bonus, jackpot, multipliers and the
+ball drain sequence. The port was made with a one-off translator for the
+regular patterns (`X->Message(MessageCode::Y, v)` → `X.message(MC.y, v)`),
+then fixed by hand where C++ and Dart differ; names follow the original so
+the two can be compared side by side.
+
+Components talk to the rules through the original's message codes
+(`MC`): every part has `message(code, value)` and its `messageField`, and
+reports events the way the original calls `control::handler`. The game
+flow is the original's too: `NewGame` → light show (as long as the start
+sound) → "Player 1" → ball feed; the drain → `BallDrainControl` →
+re-deploy, shoot again, next ball or game over.
+
+Messages come from the user's own Pinball.exe (`STRINGnnn` = resource id
+nnn − 101), extracted by the install tool.
+
+Not yet: tilt (nudging), high scores, more than one player, music (MIDI),
+the stuck-ball rescue (`UnstuckBall`) and the attract-mode demo.
+
 ### Open points to check against the original
 
-- Kickouts hold the ball for their default 1.5 s; the rules set this per
-  mission (Phase 6).
-- Wormholes give the ball back from the same sink; the rules pick another
-  one (Phase 6).
-- Gates start closed and the centre post down; the rules open and raise
-  them (Phase 6). Until then a ball in an outlane drains.
 - A ramp shot that only just makes the top can come to rest on the upper
   level.
 - A weak plunge leaves the lane half way through a one-way wall.
@@ -179,6 +203,6 @@ their own defaults.
 | 3 | Ball, walls, drain, flippers, plunger — first playable | done |
 | 4 | Bumpers, slingshots, lanes, targets, ramps, sensors | done |
 | 5 | Scoring, scoreboard, sound, lights | done |
-| 6 | Space Cadet rules and missions | next |
-| 7 | Animation, haptics, mobile controls | |
+| 6 | Space Cadet rules and missions | done |
+| 7 | Animation, haptics, mobile controls | next |
 | 8 | Tuning against the original | |

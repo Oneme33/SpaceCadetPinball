@@ -10,15 +10,17 @@ import '../physics/flipper.dart';
 import '../physics/physics_world.dart';
 import '../physics/plunger.dart';
 import '../physics/table_walls.dart';
+import 'parts/group_parts.dart';
 import 'parts/light_part.dart';
 import 'parts/part.dart';
 import 'parts/ramp_part.dart';
 import 'parts/sensor_parts.dart';
+import 'parts/table_proxies.dart';
 import 'parts/solid_parts.dart';
 import 'table_layout.dart';
 
 /// Events from the table itself to the game flow.
-enum TableEvent { ballLaunched, ballDrained, flipperUp }
+enum TableEvent { ballLaunched, ballDrained, ballFed, flipperUp }
 
 /// The physical table: walls, flippers, plunger, drain, balls and every
 /// component from PINBALL.DAT as a [TablePart].
@@ -44,11 +46,49 @@ class SpaceCadetTable {
       addBall: addBall,
       removeBall: _toRemove.add,
       playSound: (g) => playSound?.call(g),
+      soundDuration: (g) => soundDuration?.call(g) ?? -1,
+      partByGroup: (g) => _byGroup[g],
     );
     for (final c in layout.components) {
       final part = _createPart(c);
       if (part != null) parts.add(part);
     }
+    Component proxy(ComponentType type, String name) =>
+        layout.ofType(type).firstOrNull ??
+        Component(type: type, group: -1, name: name, states: const []);
+    drainPart =
+        DrainPart(
+            _ctx,
+            proxy(ComponentType.drain, 'drain'),
+            timerTime: layout.drain.delay,
+          )
+          ..ballsInPlay = (() => multiballCount)
+          ..setBallsInPlay = ((n) => multiballCount = n);
+    plungerPart = PlungerPart(
+      _ctx,
+      proxy(ComponentType.plunger, 'plunger'),
+      feed: () {
+        feedBall();
+        multiballCount++;
+        onEvent?.call(TableEvent.ballFed);
+      },
+      ballAtFeed: () => balls.any(
+        (b) =>
+            (b.x - layout.plunger.feedX).abs() < layout.ballRadius * 1.2 &&
+            (b.y - layout.plunger.feedY).abs() < layout.ballRadius * 1.2,
+      ),
+      autoLaunch: () => plunger.autoLaunches++,
+      feedSound: playFeedSound,
+    );
+    leftFlipperPart = FlipperPart(
+      _ctx,
+      proxy(ComponentType.flipperLeft, 'a_flip1'),
+    );
+    rightFlipperPart = FlipperPart(
+      _ctx,
+      proxy(ComponentType.flipperRight, 'a_flip2'),
+    );
+    parts.addAll([drainPart, plungerPart, leftFlipperPart, rightFlipperPart]);
     physics.beforeStep.add(_beforeStep);
     physics.afterStep.add(_afterStep);
   }
@@ -57,6 +97,28 @@ class SpaceCadetTable {
   final TableLayout layout;
   final math.Random _random;
   late final PartContext _ctx;
+
+  /// For parts made outside the table (message boxes).
+  PartContext get partContext => _ctx;
+
+  late final DrainPart drainPart;
+  late final PlungerPart plungerPart;
+  late final FlipperPart leftFlipperPart, rightFlipperPart;
+
+  /// Balls in play (`TPinballTable::MultiballCount`).
+  int multiballCount = 0;
+
+  /// Sound records of the table itself: game start and game over.
+  int? startSound, gameOverSound;
+
+  math.Random get random => _random;
+
+  /// Plays the game start or game over sound; returns its length.
+  double playTableSound({required bool start}) {
+    final g = start ? startSound : gameOverSound;
+    playSound?.call(g);
+    return g == null ? -1 : (soundDuration?.call(g) ?? -1);
+  }
 
   late final Flipper leftFlipper;
   late final Flipper rightFlipper;
@@ -74,6 +136,7 @@ class SpaceCadetTable {
   void Function(TableEvent event)? onEvent;
   void Function(PartEvent event)? onPartEvent;
   void Function(int? soundGroup)? playSound;
+  double Function(int? soundGroup)? soundDuration;
 
   VisualState? _visualOf(ComponentType type) {
     for (final c in layout.components) {
@@ -105,6 +168,28 @@ class SpaceCadetTable {
 
   late final Map<String, TablePart> _byName = {
     for (final p in parts) p.name: p,
+  };
+  /// Parts with a field effect, and parts that watch the ball (sensors,
+  /// trigger lines): the only ones visited every physics step.
+  late final List<TablePart> _fieldParts = [
+    for (final p in parts)
+      if (p is KickoutPart || p is HolePart || p is RampPart) p,
+  ];
+  late final List<TablePart> _sensorParts = [
+    for (final p in parts)
+      if (p is RolloverPart ||
+          p is TripwirePart ||
+          p is SpinnerPart ||
+          p is OnewayPart ||
+          p is KickoutPart ||
+          p is SinkPart ||
+          p is HolePart ||
+          p is RampPart)
+        p,
+  ];
+
+  late final Map<int, TablePart> _byGroup = {
+    for (final p in parts) p.component.group: p,
   };
 
   TablePart? part(String name) => _byName[name];
@@ -150,6 +235,10 @@ class SpaceCadetTable {
         ComponentType.hole when has<WallCircle>() => HolePart(_ctx, c),
         ComponentType.ramp => RampPart(_ctx, c),
         ComponentType.light => LightPart(_ctx, c),
+        ComponentType.lightGroup => LightGroupPart(_ctx, c),
+        ComponentType.lightBargraph => LightBargraphPart(_ctx, c),
+        ComponentType.componentGroup => ComponentGroupPart(_ctx, c),
+        ComponentType.sound => SoundPart(_ctx, c),
         _ => null,
       };
     } on Object catch (e) {
@@ -164,6 +253,7 @@ class SpaceCadetTable {
     if (pressed && !f.pressed) {
       playSound?.call(visual?.sound4);
       onEvent?.call(TableEvent.flipperUp);
+      (left ? leftFlipperPart : rightFlipperPart).extended();
     } else if (!pressed && f.pressed) {
       playSound?.call(visual?.sound3);
     }
@@ -192,6 +282,7 @@ class SpaceCadetTable {
     }
     balls.clear();
     _toRemove.clear();
+    multiballCount = 0;
   }
 
   /// New game: every part back to its start state, pending timers gone.
@@ -217,7 +308,7 @@ class SpaceCadetTable {
       b
         ..prevX = b.x
         ..prevY = b.y;
-      for (final p in parts) {
+      for (final p in _fieldParts) {
         p.field(b);
       }
       b.applyFields();
@@ -249,7 +340,7 @@ class SpaceCadetTable {
     }
     for (final b in balls) {
       if (b.isCaptured || _toRemove.contains(b)) continue;
-      for (final p in parts) {
+      for (final p in _sensorParts) {
         p.checkBall(b);
         if (b.isCaptured || _toRemove.contains(b)) break;
       }
@@ -264,6 +355,7 @@ class SpaceCadetTable {
         b.destroy();
         balls.removeAt(i);
         onEvent?.call(TableEvent.ballDrained);
+        drainPart.ballDrained();
       }
     }
   }

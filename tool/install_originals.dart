@@ -4,8 +4,10 @@
 //
 //   dart run tool/install_originals.dart [source-folder]   (default: original/)
 // ignore_for_file: avoid_print
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:space_cadet/dat/pe_strings.dart';
 import 'package:space_cadet/dat/pinball_data.dart';
 
 void main(List<String> args) {
@@ -43,4 +45,18 @@ void main(List<String> args) {
     }
   }
   print('Copied $copied files to ${target.path}/');
+
+  // The game's messages live in Pinball.exe's string table.
+  final exe = find('PINBALL.EXE');
+  if (exe == null) {
+    print('Pinball.exe not found: messages will show as placeholders.');
+  } else {
+    final strings = readPeStrings(exe.readAsBytesSync());
+    File('${target.path}/strings.json').writeAsStringSync(
+      const JsonEncoder.withIndent(' ').convert({
+        for (final e in strings.entries) '${e.key}': e.value,
+      }),
+    );
+    print('Extracted ${strings.length} messages to ${target.path}/strings.json');
+  }
 }

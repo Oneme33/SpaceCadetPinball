@@ -12,6 +12,7 @@ import 'package:space_cadet/game/table/parts/sensor_parts.dart';
 import 'package:space_cadet/game/table/parts/solid_parts.dart';
 import 'package:space_cadet/game/table/space_cadet_table.dart';
 import 'package:space_cadet/game/table/table_layout.dart';
+import 'package:space_cadet/game/rules/message_code.dart';
 
 /// Behaviour of the table components on the original geometry. Skipped
 /// when the original PINBALL.DAT is not installed.
@@ -124,6 +125,11 @@ void main() {
       run(0.5);
       expect(reported('a_kout2'), isTrue);
       expect(ball.isCaptured, isTrue);
+      // It stays until the rules say otherwise…
+      run(3);
+      expect(ball.isCaptured, isTrue);
+      // …and comes out after the default hold time when they do.
+      k.message(MC.tKickoutRestartTimer, -1);
       run(KickoutPart.holdTime + 0.1);
       expect(ball.isCaptured, isFalse);
       expect(ball.speed, greaterThan(1));
@@ -147,6 +153,7 @@ void main() {
       run(0.4);
       expect(reported('v_sink1'), isTrue);
       expect(table.balls, isEmpty);
+      s.message(MC.tSinkResetTimer, -1);
       run(s.timerTime + 0.1);
       expect(table.balls, hasLength(1));
     });
@@ -199,7 +206,7 @@ void main() {
     test('a ball touching two segments of a part is kicked once', () {
       final kicks = <String, int>{};
       table.onPartEvent = (e) {
-        if (e.kind == PartEventKind.collision) {
+        if (e.code == MC.controlCollision) {
           kicks[e.part.name] = (kicks[e.part.name] ?? 0) + 1;
         }
       };

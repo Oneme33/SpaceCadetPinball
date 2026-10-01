@@ -14,14 +14,15 @@ import 'audio/audio_manager.dart';
 import 'debug/debug_layer.dart';
 import 'game_config.dart';
 import 'game_state.dart';
-import 'gameplay/ball_manager.dart';
 import 'gameplay/game_timers.dart';
 import 'input/input_bindings.dart';
 import 'physics/physics_world.dart';
-import 'rules/control.dart';
+import 'rules/message_code.dart';
+import 'rules/original_rules.dart';
 import 'rules/score_manager.dart';
 import 'table/ball_renderer.dart';
 import 'table/camera_projection.dart';
+import 'table/parts/light_part.dart';
 import 'table/parts/part.dart';
 import 'table/placeholder_table.dart';
 import 'table/space_cadet_table.dart';
@@ -58,21 +59,19 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
   static const attractOverlay = 'attract';
   static const gameOverOverlay = 'gameOver';
 
-  /// `TPlunger`: the ball appears 0.96 s after the feed is requested.
-  static const ballFeedDelay = 0.96;
-
   late final GameStateMachine gameState = GameStateMachine(onChanged: _onPhase);
   final InputState input = InputState();
-  final BallManager ballManager = BallManager();
   final GameTimers timers = GameTimers();
   final ScoreManager score = ScoreManager();
   late final TextBox infoText = TextBox(
-    onTimerExpired: () => control.handleTextBoxExpired(infoText),
+    onTimerExpired: () => rules.infoPart.expired(),
   );
   late final TextBox missionText = TextBox(
-    onTimerExpired: () => control.handleTextBoxExpired(missionText),
+    onTimerExpired: () => rules.missionPart.expired(),
   );
-  late final Control control;
+
+  /// The original Space Cadet rules (control.cpp).
+  late final OriginalRules rules;
   late final AudioManager audio;
 
   /// The score is shown once a game has been started.
@@ -133,14 +132,19 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
     audio = AudioManager(soundFiles: originals?.data.soundFiles ?? const {});
     table = SpaceCadetTable(physics, layout)
       ..onEvent = _onTableEvent
-      ..onPartEvent = _onPartEvent
-      ..playSound = audio.play;
-    control = Control(
+      ..playSound = audio.play
+      ..soundDuration = ((g) => originals?.soundDurations[g] ?? -1)
+      ..startSound = originals?.data.tableVisual.sound4
+      ..gameOverSound = originals?.data.tableVisual.sound3;
+    rules = OriginalRules(
       table: table,
       score: score,
       info: infoText,
       mission: missionText,
+      strings: originals?.strings ?? const {},
+      hooks: RulesHooks(onGameOver: _gameOver),
     );
+    table.onPartEvent = _onPartEvent;
 
     if (originals != null) {
       world.add(TableArt(originals));
@@ -211,7 +215,7 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
         mission: text('mission_text_box', missionText),
         values: () => (
           score: _scoreShown ? score.score : null,
-          ball: ballManager.ballNumber,
+          ball: _ballNumber,
           player: _scoreShown ? 1 : null,
         ),
       ),
@@ -267,40 +271,44 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
 
   // --- Game flow -----------------------------------------------------------
 
+  /// The scoreboard's ball number: `MaxBallCount - BallCount + 1`, erased
+  /// when no ball is left (`TPinballTable::ChangeBallCount`).
+  int? get _ballNumber {
+    final count = rules.t.ballCount;
+    return count > 0 ? TableState.maxBallCount - count + 1 : null;
+  }
+
+  /// A new game the original way: `TPinballTable::Message(NewGame)` resets
+  /// everything, runs the light show and then feeds the first ball.
   void startGame() {
     if (!gameState.handle(GameEvent.startGame)) return;
     timers.clear();
     table
       ..removeAllBalls()
       ..releaseControls()
-      ..reset();
-    ballManager.startGame();
-    score.reset();
+      ..timers.clear();
     _scoreShown = true;
-    infoText.clear();
-    missionText.clear();
-    audio.play(originals?.data.tableVisual.sound4);
-    _feedBallSoon();
-  }
-
-  void _feedBallSoon() {
-    table.playFeedSound();
-    timers.set(ballFeedDelay, () {
-      if (table.balls.isEmpty) table.feedBall();
-    });
+    rules.t.message(MC.newGame, 1);
   }
 
   void _onTableEvent(TableEvent e) {
     switch (e) {
       case TableEvent.ballDrained:
-        if (table.balls.isEmpty && gameState.handle(GameEvent.ballDrained)) {
-          timers.set(layout.drain.delay, _afterDrain);
-        }
+        if (table.balls.isEmpty) gameState.handle(GameEvent.ballDrained);
+      case TableEvent.ballFed:
+        gameState.handle(GameEvent.nextBallReady);
       case TableEvent.ballLaunched:
       case TableEvent.flipperUp:
-        // Phase 5: sounds and haptics.
+        // Phase 7: haptics.
         break;
     }
+  }
+
+  /// `EndGame_timeout`: the game is over.
+  void _gameOver() {
+    gameState
+      ..handle(GameEvent.ballDrained)
+      ..handle(GameEvent.noBallsLeft);
   }
 
   /// Most recent component event, for the debug HUD.
@@ -308,17 +316,15 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
 
   void _onPartEvent(PartEvent e) {
     lastPartEvent = e;
-    if (gameState.isSimulating) control.handle(e);
-  }
-
-  void _afterDrain() {
-    if (ballManager.ballDrained()) {
-      gameState.handle(GameEvent.nextBallReady);
-      _feedBallSoon();
-    } else {
-      gameState.handle(GameEvent.noBallsLeft);
-      audio.play(originals?.data.tableVisual.sound3);
+    if (!gameState.isSimulating) return;
+    // A light only reports its timer when it has a control function
+    // (`TLight::TimerExpired`: `if (light->Control)`).
+    if (e.code == MC.controlTimerExpired &&
+        e.part is LightPart &&
+        !rules.controls.containsKey(e.part.name)) {
+      return;
     }
+    rules.handler(e.code, e.part);
   }
 
   void togglePause() {

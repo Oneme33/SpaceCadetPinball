@@ -136,6 +136,7 @@ class Component {
     required this.name,
     required this.states,
     this.attributes = const {},
+    this.shortAttributes = const {},
   });
 
   final ComponentType type;
@@ -146,6 +147,10 @@ class Component {
   /// Float attributes of the first state, by code, without the code
   /// itself (e.g. 407 = timer, 601 = ball position, 1300 = ramp planes).
   final Map<int, List<double>> attributes;
+
+  /// Short-array attributes of the first state, by first value (e.g. 1027 =
+  /// member group indices of a light or component group).
+  final Map<int, List<int>> shortAttributes;
 }
 
 class ScoreField {
@@ -314,6 +319,11 @@ class PinballData {
         for (final e in dat.groups[group].fields(DatFieldType.floatArray))
           if (e.floats case final f when f.isNotEmpty)
             f[0].floor(): List.unmodifiable(f.sublist(1)),
+      },
+      shortAttributes: {
+        for (final e in dat.groups[group].fields(DatFieldType.shortArray))
+          if (e.shorts case final a when a.isNotEmpty)
+            a[0]: List.unmodifiable(a.sublist(1)),
       },
     );
   }

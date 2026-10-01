@@ -20,6 +20,9 @@ class TextBox {
   /// Text on display, or null.
   String? text;
 
+  /// Free storage for the rules (`TPinballComponent::MessageField`).
+  int messageField = 0;
+
   bool get isEmpty => text == null;
 
   void display(String message, double time, {bool lowPriority = false}) {
