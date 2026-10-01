@@ -3,8 +3,10 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../space_cadet_game.dart';
+import 'cadet_flights.dart';
 
 /// Flutter overlays: the start and game-over banners and the pause menu.
 /// Only for menus: nothing here rebuilds during play.
@@ -405,8 +407,9 @@ class _Row extends StatelessWidget {
   );
 }
 
-/// The cadet in his space car looping around a starfield: the menu's
-/// header. Still when the system asks for reduced motion.
+/// The cadet in his space car flying through a starfield, in from a
+/// random side and out at the other: the menu's header. Still when the
+/// system asks for reduced motion.
 class _FlyingCadet extends StatefulWidget {
   const _FlyingCadet({required this.car});
   final ui.Image? car;
@@ -417,24 +420,28 @@ class _FlyingCadet extends StatefulWidget {
 
 class _FlyingCadetState extends State<_FlyingCadet>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _loop = AnimationController(
-    vsync: this,
-    duration: const Duration(seconds: 9),
+  final _time = ValueNotifier<double>(0);
+  final _flights = CadetFlights();
+  late final Ticker _ticker = createTicker(
+    (elapsed) => _time.value = elapsed.inMicroseconds / 1e6,
   );
+  bool _still = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _loop.stop();
-    } else if (!_loop.isAnimating) {
-      _loop.repeat();
+    _still = MediaQuery.disableAnimationsOf(context);
+    if (_still) {
+      _ticker.stop();
+    } else if (!_ticker.isActive) {
+      _ticker.start();
     }
   }
 
   @override
   void dispose() {
-    _loop.dispose();
+    _ticker.dispose();
+    _time.dispose();
     super.dispose();
   }
 
@@ -452,17 +459,22 @@ class _FlyingCadetState extends State<_FlyingCadet>
                 ),
               )
             : RepaintBoundary(
-                child: CustomPaint(painter: _LoopPainter(car, _loop)),
+                child: CustomPaint(
+                  painter: _FlightPainter(car, _time, _still ? null : _flights),
+                ),
               ),
       ),
     );
   }
 }
 
-class _LoopPainter extends CustomPainter {
-  _LoopPainter(this.car, this.loop) : super(repaint: loop);
+class _FlightPainter extends CustomPainter {
+  _FlightPainter(this.car, this.time, this.flights) : super(repaint: time);
   final ui.Image car;
-  final Animation<double> loop;
+  final ValueListenable<double> time;
+
+  /// Null when still: the car then hovers in the middle.
+  final CadetFlights? flights;
 
   // Fixed stars, in the scoreboard's own star colours.
   static final _stars = () {
@@ -484,10 +496,10 @@ class _LoopPainter extends CustomPainter {
       Offset.zero & size,
       Paint()..color = const Color(0xFF000000),
     );
-    final t = loop.value * 2 * math.pi;
+    final t = time.value;
     final star = Paint();
     for (final (x, y, c, phase) in _stars) {
-      final twinkle = 0.55 + 0.45 * math.sin(t * 3 + phase * 6.3);
+      final twinkle = 0.55 + 0.45 * math.sin(t * 2.1 + phase * 6.3);
       star.color = _starColors[c].withValues(alpha: twinkle);
       canvas.drawRect(
         Rect.fromLTWH(x * size.width, y * size.height, 1.4, 1.4),
@@ -495,35 +507,36 @@ class _LoopPainter extends CustomPainter {
       );
     }
 
-    // An orbit seen from the side: close by and large flying left (the
-    // way the car faces in the art), far away and small flying back to the
-    // right. It turns round out of view, past either edge.
-    final z = math.cos(t); // 1 nearest, -1 furthest
-    final depth = (z + 1) / 2;
-    final scale = 0.32 + 0.68 * depth;
-    final carW = size.width * 0.62 * scale;
-    final carH = carW * car.height / car.width;
-    final cx = size.width / 2 - math.sin(t) * size.width * 0.85;
-    // Further away is higher up, and the car bobs gently.
-    final cy =
-        size.height * (0.34 + 0.26 * depth) +
-        math.sin(t * 4) * size.height * 0.025;
-    final facing = z >= 0 ? 1.0 : -1.0; // mirrored on the way back
+    final aspect = car.height / car.width;
+    final pose = flights == null
+        ? CadetPose(
+            size.center(Offset.zero),
+            size.width * CadetFlight.fullWidth * 0.8,
+            1,
+            0,
+          )
+        : flights!.poseAt(t, size, aspect);
+    if (pose == null) return;
     canvas
       ..save()
       ..clipRect(Offset.zero & size)
-      ..translate(cx, cy)
-      ..rotate(math.cos(t * 4) * 0.05)
-      ..scale(facing, 1);
+      ..translate(pose.center.dx, pose.center.dy)
+      ..rotate(pose.angle)
+      ..scale(pose.facing, 1);
     canvas.drawImageRect(
       car,
       Rect.fromLTWH(0, 0, car.width.toDouble(), car.height.toDouble()),
-      Rect.fromCenter(center: Offset.zero, width: carW, height: carH),
+      Rect.fromCenter(
+        center: Offset.zero,
+        width: pose.width,
+        height: pose.width * aspect,
+      ),
       Paint()..filterQuality = FilterQuality.medium,
     );
     canvas.restore();
   }
 
   @override
-  bool shouldRepaint(_LoopPainter old) => old.car != car;
+  bool shouldRepaint(_FlightPainter old) =>
+      old.car != car || old.flights != flights;
 }
