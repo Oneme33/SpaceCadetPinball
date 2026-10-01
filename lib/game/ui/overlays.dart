@@ -130,8 +130,17 @@ class _PauseMenuState extends State<_PauseMenu> {
           style: _label.copyWith(color: _red, letterSpacing: 2),
         ),
         const SizedBox(height: 10),
-        _Row(label: 'Resume', onTap: game.togglePause),
-        _Row(label: 'New Game', onTap: game.newGameFromMenu),
+        Row(
+          children: [
+            Expanded(
+              child: _Row(label: 'Resume', onTap: game.togglePause),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: _Row(label: 'New Game', onTap: game.newGameFromMenu),
+            ),
+          ],
+        ),
         _Row(label: 'How to Play', onTap: () => setState(() => _guide = true)),
         const SizedBox(height: 10),
         _Row(
@@ -486,19 +495,25 @@ class _LoopPainter extends CustomPainter {
       );
     }
 
-    // A figure-eight loop; the car faces left in the art, so it turns
-    // round (a quick horizontal flip) while it flies to the right.
-    final carW = size.width * 0.56;
+    // An orbit seen from the side: close by and large flying left (the
+    // way the car faces in the art), far away and small flying back to the
+    // right. It turns round out of view, past either edge.
+    final z = math.cos(t); // 1 nearest, -1 furthest
+    final depth = (z + 1) / 2;
+    final scale = 0.32 + 0.68 * depth;
+    final carW = size.width * 0.62 * scale;
     final carH = carW * car.height / car.width;
-    final cx = size.width / 2 + math.sin(t) * (size.width - carW) * 0.45;
-    final cy = size.height / 2 + math.sin(2 * t) * (size.height - carH) * 0.5;
-    final dx = math.cos(t), dy = math.cos(2 * t);
-    final facing = (-dx * 4).clamp(-1.0, 1.0);
+    final cx = size.width / 2 - math.sin(t) * size.width * 0.85;
+    // Further away is higher up, and the car bobs gently.
+    final cy =
+        size.height * (0.34 + 0.26 * depth) +
+        math.sin(t * 4) * size.height * 0.025;
+    final facing = z >= 0 ? 1.0 : -1.0; // mirrored on the way back
     canvas
       ..save()
       ..clipRect(Offset.zero & size)
       ..translate(cx, cy)
-      ..rotate(-dy * 0.16 * facing.sign)
+      ..rotate(math.cos(t * 4) * 0.05)
       ..scale(facing, 1);
     canvas.drawImageRect(
       car,

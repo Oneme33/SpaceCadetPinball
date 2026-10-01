@@ -58,8 +58,10 @@ Play" guide (written from the ported rules), mode (Normal/Easy), graphics
 after the scoreboard. Settings and the high score tables are kept between
 sessions.
 
-At the top the cadet flies a figure-eight through the stars in his space
-car, cut out of the scoreboard art (classic or HD, whichever is on). The
+At the top the cadet orbits through the stars in his space car: large
+and close by on the way left, small and far away on the way back, turning
+round out of view. The car is cut out of the scoreboard art (classic or HD,
+whichever is on). The
 logo letters behind his see-through dome are replaced by a glass tint and
 the dome's rim. The loop stands still when the system asks for reduced
 motion.
