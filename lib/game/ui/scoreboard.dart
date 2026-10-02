@@ -5,6 +5,7 @@ import 'package:flutter/painting.dart';
 
 import '../../dat/pinball_data.dart' show ScoreField;
 import '../graphics.dart';
+import 'bitmap_font.dart';
 import 'text_box.dart';
 
 /// The scoreboard's live parts, drawn over the scoreboard art: score, ball
@@ -64,17 +65,16 @@ class DigitField {
   }
 }
 
-/// A message box. 3D Pinball drew these with the Windows system font in
-/// white (`TextBoxColor` = 255 255 255), wrapped to the box.
-///
-/// TODO: VERIFY AGAINST ORIGINAL SPACE CADET — font face and size; the
-/// original used the system's default GUI font, which is not part of the
-/// game files.
+/// A message box. The English 3D Pinball draws these with its bitmap
+/// font (`PBMSG_FT` from Pinball.exe, `TextBoxUseBitmapFont` = 1); without
+/// it, in white system text (`TextBoxColor` = 255 255 255) wrapped to the
+/// box, as the decompilation does.
 class TextField {
-  TextField(this.box, this.rect);
+  TextField(this.box, this.rect, {this.font});
 
   final TextBox box;
   final Rect rect;
+  final BitmapFont? font;
 
   static const _style = TextStyle(
     color: Color(0xFFFFFFFF),
@@ -88,6 +88,10 @@ class TextField {
   void render(Canvas canvas) {
     final text = box.text;
     if (text == null) return;
+    if (font case final f?) {
+      f.render(canvas, text, rect);
+      return;
+    }
     if (text != _laidOut) {
       _painter
         ..text = TextSpan(text: text, style: _style)

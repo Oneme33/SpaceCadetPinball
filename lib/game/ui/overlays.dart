@@ -8,6 +8,7 @@ import 'package:flutter/scheduler.dart';
 import '../rules/original_rules.dart';
 import '../rules/score_manager.dart';
 import '../space_cadet_game.dart';
+import 'bitmap_font.dart';
 import 'cadet_flights.dart';
 import 'screen_layout.dart';
 
@@ -187,29 +188,40 @@ class _PhoneHudState extends State<_PhoneHud>
             Expanded(
               child: _Panel(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        info ?? '',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: _label.copyWith(fontSize: 13, height: 1.2),
-                      ),
-                      Text(
-                        mission ?? '',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: _label.copyWith(
-                          fontSize: 11,
-                          height: 1.15,
-                          color: _metalLight,
-                        ),
-                      ),
-                    ],
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 3,
                   ),
+                  child: switch (game.originals?.messageFont) {
+                    // The original's dotted message font, as on the
+                    // scoreboard.
+                    final font? => CustomPaint(
+                      painter: _HudTextPainter(font, info, mission),
+                      size: Size.infinite,
+                    ),
+                    null => Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          info ?? '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _label.copyWith(fontSize: 13, height: 1.2),
+                        ),
+                        Text(
+                          mission ?? '',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: _label.copyWith(
+                            fontSize: 11,
+                            height: 1.15,
+                            color: _metalLight,
+                          ),
+                        ),
+                      ],
+                    ),
+                  },
                 ),
               ),
             ),
@@ -234,6 +246,39 @@ class _PhoneHudState extends State<_PhoneHud>
       ),
     );
   }
+}
+
+/// The bar's message panel in the bitmap font: the info message on one
+/// line, the mission below it on two, scaled to fit the panel.
+class _HudTextPainter extends CustomPainter {
+  _HudTextPainter(this.font, this.info, this.mission);
+  final BitmapFont font;
+  final String? info, mission;
+
+  static final _smooth = Paint()..filterQuality = FilterQuality.medium;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const lines = 3;
+    final scale = math.min(1.0, size.height / (font.height * lines));
+    final width = size.width / scale;
+    canvas
+      ..save()
+      ..clipRect(Offset.zero & size)
+      ..scale(scale);
+    final h = font.height.toDouble();
+    if (info case final t?) {
+      font.render(canvas, t, Rect.fromLTWH(0, 0, width, h), _smooth);
+    }
+    if (mission case final t?) {
+      font.render(canvas, t, Rect.fromLTWH(0, h, width, h * 2), _smooth);
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_HudTextPainter old) =>
+      old.info != info || old.mission != mission || old.font != font;
 }
 
 /// The pause menu and its "How to Play" page.

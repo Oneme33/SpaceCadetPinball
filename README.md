@@ -11,7 +11,8 @@ and install them; see [docs/ASSETS.md](docs/ASSETS.md):
 dart run tool/install_originals.dart original/
 ```
 
-This also reads the game's messages from your `Pinball.exe` (put it in
+This also reads the game's messages and the bitmap font of the message
+boxes (`PBMSG_FT`, the dotted letters) from your `Pinball.exe` (put it in
 `original/` too). Without the originals the game runs with labelled
 placeholders.
 

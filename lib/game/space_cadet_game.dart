@@ -386,6 +386,7 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
       return TextField(
         box,
         Rect.fromLTWH(x.toDouble(), y.toDouble(), w.toDouble(), h.toDouble()),
+        font: originals?.messageFont,
       );
     }
 

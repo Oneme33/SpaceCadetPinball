@@ -132,6 +132,8 @@ class _Title extends StatelessWidget {
       children: [
         Text(
           text,
+          maxLines: 1,
+          softWrap: false,
           style: style.copyWith(
             color: _outline,
             shadows: [
@@ -152,7 +154,12 @@ class _Title extends StatelessWidget {
             end: Alignment.bottomCenter,
             colors: [Color(0xFFE6DCFF), _lavender, _violet],
           ).createShader(r),
-          child: Text(text, style: style.copyWith(color: Colors.white)),
+          child: Text(
+            text,
+            maxLines: 1,
+            softWrap: false,
+            style: style.copyWith(color: Colors.white),
+          ),
         ),
       ],
     );
@@ -162,13 +169,17 @@ class _Title extends StatelessWidget {
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final big = math.min(84.0, width / 6.2);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _outlined('3D Pinball', big * 0.45, spacing: 1),
-        SizedBox(height: big * 0.12),
-        _outlined('Space Cadet', big),
-      ],
+    // Never wrapped: on a narrow screen the title scales down instead.
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _outlined('3D Pinball', big * 0.45, spacing: 1),
+          SizedBox(height: big * 0.12),
+          _outlined('Space Cadet', big),
+        ],
+      ),
     );
   }
 }

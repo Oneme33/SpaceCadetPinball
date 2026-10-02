@@ -62,5 +62,13 @@ void main(List<String> args) {
     print(
       'Extracted ${strings.length} messages to ${target.path}/strings.json',
     );
+    // The bitmap font of the message boxes (RT_RCDATA "PBMSG_FT").
+    final font = readPeResource(exe.readAsBytesSync(), 10, 'PBMSG_FT');
+    if (font != null) {
+      File('${target.path}/PB_MSGFT.bin').writeAsBytesSync(font);
+      print('Extracted the message font to ${target.path}/PB_MSGFT.bin');
+    } else {
+      print('No message font in Pinball.exe: messages use a system font.');
+    }
   }
 }

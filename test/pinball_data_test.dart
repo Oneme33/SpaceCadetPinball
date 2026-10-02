@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:space_cadet/dat/dat_file.dart';
+import 'package:space_cadet/dat/msg_font.dart';
 import 'package:space_cadet/dat/pinball_data.dart';
 import 'package:space_cadet/game/table/camera_projection.dart';
 import 'package:space_cadet/game/ui/cadet_car.dart';
@@ -180,4 +181,28 @@ void main() {
       expect(p.dx, greaterThan(data.tableBitmap.width * 0.75));
     });
   });
+
+  group(
+    'message font',
+    () {
+      final file = File('assets/original/PB_MSGFT.bin');
+      test('reads the bitmap font and wraps as TTextBox does', () {
+        final font = MsgFont.parse(file.readAsBytesSync());
+        expect(font.glyphs.keys, containsAll([32, 65, 97, 122]));
+        expect(font.height, greaterThan(8));
+        const text = 'Hit Mission Targets To Select Mission';
+        final lines = font.layout(text, 180, 200);
+        expect(lines.length, greaterThan(1), reason: 'wraps in a narrow box');
+        // Lines break at spaces, so every line starts at a word.
+        for (final (start, _) in lines) {
+          expect(start == 0 || text[start - 1] == ' ', isTrue);
+        }
+        // A box only one line high shows one line.
+        expect(font.layout(text, 180, font.height), hasLength(1));
+      });
+    },
+    skip: File('assets/original/PB_MSGFT.bin').existsSync()
+        ? null
+        : 'PB_MSGFT.bin not installed',
+  );
 }

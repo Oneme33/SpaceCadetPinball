@@ -7,7 +7,9 @@ import 'package:flutter/services.dart';
 
 import '../../dat/dat_bitmap.dart';
 import '../../dat/dat_file.dart';
+import '../../dat/msg_font.dart';
 import '../../dat/pinball_data.dart';
+import '../ui/bitmap_font.dart';
 
 /// The user's own original game data, decoded for rendering.
 ///
@@ -22,7 +24,12 @@ class OriginalAssets {
     this.table,
     this.scoreboard,
     this.ballSprites,
+    this.messageFont,
   );
+
+  /// The bitmap font of the message boxes, from Pinball.exe (`PBMSG_FT`);
+  /// null when not installed (a system font is used then).
+  final BitmapFont? messageFont;
 
   /// The game's messages from Pinball.exe, by resource id.
   final Map<int, String> strings;
@@ -168,6 +175,19 @@ class OriginalAssets {
     Future<Image> image(Bitmap8 b) =>
         ImageExtension.fromPixels(b.toRgba(palette), b.width, b.height);
 
+    BitmapFont? font;
+    try {
+      final b = await (bundle ?? rootBundle).load(
+        'assets/original/PB_MSGFT.bin',
+      );
+      font = await BitmapFont.create(
+        MsgFont.parse(b.buffer.asUint8List(b.offsetInBytes, b.lengthInBytes)),
+        palette,
+      );
+    } on Object {
+      // Not installed (an older install): the system font is used.
+    }
+
     return OriginalAssets._(
       strings,
       durations,
@@ -183,6 +203,7 @@ class OriginalAssets {
             data.stateGroup(data.ballGroup, i),
           ),
       ],
+      font,
     );
   }
 }
