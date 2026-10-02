@@ -81,7 +81,13 @@ tool/build_site.sh --serve     # build/site/, on http://localhost:8124
 ```
 
 `build/site/` holds the game with its original files, so it stays out of
-git and is not published.
+git.
+
+It runs at space-cadet.nl on the Lukraak server (Apache, like the other
+sites there): set up once with `tool/server/setup_space_cadet.sh` (sudo;
+run it again for HTTPS once the DNS points to the server), then publish
+with `tool/deploy_site.sh` (builds and rsyncs to
+`/var/www/space-cadet.nl/www`, no sudo).
 
 ## Pause menu and settings
 
