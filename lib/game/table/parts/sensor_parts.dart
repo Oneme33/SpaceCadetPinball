@@ -32,6 +32,9 @@ class RolloverPart extends TablePart {
   void checkBall(PinballBall ball) {
     final inside =
         ball.layers & layers != 0 && insidePolygon(area, ball.x, ball.y);
+    if (inside != _inside.contains(ball) && ball.layers & layers != 0) {
+      passThrough(ball, polygonCrossing(area, ball));
+    }
     if (inside && _inside.add(ball)) {
       frame = isLight ? 0 : -1;
       if (_lightTimer case final t?) ctx.timers.cancel(t);
@@ -72,7 +75,9 @@ class TripwirePart extends TablePart {
 
   @override
   void checkBall(PinballBall ball) {
-    if (_line.crossedBy(ball)) {
+    final d = _line.crossingDistance(ball);
+    if (d != null) {
+      passThrough(ball, d);
       sound(visual.softHitSound);
       emit(MC.controlCollision);
     }
@@ -105,13 +110,16 @@ class SpinnerPart extends TablePart {
   @override
   void checkBall(PinballBall ball) {
     final int direction;
-    if (_forward.crossedBy(ball)) {
+    final f = _forward.crossingDistance(ball);
+    final b = f == null ? _backward.crossingDistance(ball) : null;
+    if (f != null) {
       direction = 1;
-    } else if (_backward.crossedBy(ball)) {
+    } else if (b != null) {
       direction = -1;
     } else {
       return;
     }
+    passThrough(ball, f ?? b);
     _direction = direction;
     _speed = (ball.speed == 0 ? minSpeed : ball.speed * 20).clamp(
       minSpeed,

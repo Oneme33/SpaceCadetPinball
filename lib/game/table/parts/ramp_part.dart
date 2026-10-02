@@ -132,12 +132,16 @@ class RampPart extends TablePart {
 
   @override
   void checkBall(PinballBall ball) {
-    if (_entry.crossedBy(ball)) {
+    final entry = _entry.crossingDistance(ball);
+    if (entry != null) {
+      passThrough(ball, entry);
       sound(visual.softHitSound);
       emit(MC.controlCollision);
     }
     for (final (line, layers, offset) in _exits) {
-      if (_owns(ball) && line.crossedBy(ball)) {
+      final d = _owns(ball) ? line.crossingDistance(ball) : null;
+      if (d != null) {
+        passThrough(ball, d);
         ball
           ..rampPlane = null
           ..layers = layers;
@@ -146,7 +150,9 @@ class RampPart extends TablePart {
       }
     }
     for (final (line, plane) in _entries) {
-      if (line.crossedBy(ball)) {
+      final d = line.crossingDistance(ball);
+      if (d != null) {
+        passThrough(ball, d);
         ball
           ..rampPlane = plane
           ..layers = rampLayers;

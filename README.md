@@ -274,9 +274,18 @@ side. What that showed and changed:
   it after a third of a second (the original's next frame sees the push
   and waits another half second). Now a push per half second standing
   still, a relaunch after about ten seconds, as the original.
-- **Matching already:** gravity and braking (free fall within 0.13 after
-  1 s), slingshots (19.0 vs 18.8), bumpers (20.7 vs 20.7 head-on), the
-  plunger (full and short pulls), ramp entry (upper level from 20–25).
+- **Passing through lines.** The original moves a ball in rays of half
+  its radius; a line it passes through (ramp edges, rollovers,
+  tripwires, spinners, one-way walls) ends the ray, and the next starts
+  at full length, so the ball gains the distance to the line once more.
+  Copied (`TablePart.passThrough`): ramp shots now reach the upper level
+  at the original's moment (0.15 s vs 0.15 s at speed 35), a weak shot
+  (20) makes it as in the original, and ramp tracks stay together for
+  0.6–1.3 s instead of 0.03–0.4 s.
+- **Matching:** gravity and braking (free fall within 0.13 after 1 s),
+  slingshots (19.0 vs 18.8), bumpers (20.7 vs 20.7 head-on), the plunger
+  (full and short pulls), kickouts (held 0.22–1.72 s in both, thrown at
+  34.6), wormholes and kickbacks (together for 1–2.4 s).
 - **Original's own quirk, not copied:** at 120 Hz about a third of very
   short plunger taps do not launch at all (the ball is mid-bounce during
   the 25 ms window); at 240 Hz none miss.
@@ -301,4 +310,4 @@ bumpers a hundredth of a second decides the next bounce.
 | 5 | Scoring, scoreboard, sound, lights | done |
 | 6 | Space Cadet rules and missions | done |
 | 7 | HD graphics, menu, haptics, tilt, high scores, stuck ball | done |
-| 8 | Tuning against the original | measured, collision and stuck ball fixed; continuing |
+| 8 | Tuning against the original | done: collision response, stuck ball, pass-through lines |

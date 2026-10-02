@@ -432,7 +432,9 @@ class OnewayPart extends SolidPart {
 
   @override
   void checkBall(PinballBall ball) {
-    if (_pass.crossedBy(ball)) {
+    final d = _pass.crossingDistance(ball);
+    if (d != null) {
+      passThrough(ball, d);
       sound(visual.hardHitSound);
       emit(MC.controlCollision);
     }

@@ -32,7 +32,8 @@ def load(path):
             tracks[row['scenario']].append((
                 float(row['t']),
                 (float(row['x']), float(row['y']), float(row['vx']),
-                 float(row['vy']), int(row['mask'] or 1)),
+                 float(row['vy']), int(row['mask'] or 1),
+                 row.get('holder') or ''),
             ))
     return tracks
 
@@ -44,8 +45,23 @@ def at(track, t):
             if a is None or b is None:
                 return a if t - t0 < t1 - t else b
             u = (t - t0) / (t1 - t0) if t1 > t0 else 0
-            return tuple(a[i] + (b[i] - a[i]) * u for i in range(4)) + (a[4],)
+            return tuple(a[i] + (b[i] - a[i]) * u for i in range(4)) + a[4:]
     return track[-1][1] if track and t >= track[-1][0] else None
+
+
+def holds(track):
+    """(holder, from, to) for every stretch a part holds the ball."""
+    out, cur = [], None
+    for t, p in track:
+        h = p[5] if p and len(p) > 5 else ''
+        if cur and h != cur[0]:
+            out.append((cur[0], cur[1], t))
+            cur = None
+        if h and not cur:
+            cur = (h, t)
+    if cur:
+        out.append((cur[0], cur[1], track[-1][0]))
+    return out
 
 
 def to_px(x, y):
@@ -120,6 +136,11 @@ def main():
         print(f'{name}: tracks within 0.5 until '
               f'{"the end" if diverge is None else f"{diverge:.2f} s"}')
         print('\n'.join(lines))
+        hr, hp = holds(r), holds(p)
+        if hr or hp:
+            fmt = lambda hs: ', '.join(f'{h} {a:.2f}–{b:.2f}' for h, a, b in hs) or '—'
+            print(f'  held: ref {fmt(hr)}')
+            print(f'        port {fmt(hp)}')
 
 
 if __name__ == '__main__':

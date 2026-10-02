@@ -114,7 +114,7 @@ int main(int argc, char* argv[])
 			pb::frame(dtMs);
 	};
 
-	printf("scenario,t,x,y,z,vx,vy,mask\n");
+	printf("scenario,t,x,y,z,vx,vy,mask,holder\n");
 	for (auto& s : readScenarios(argv[2]))
 	{
 		pb::replay_level(false);
@@ -145,12 +145,15 @@ int main(int argc, char* argv[])
 			if (i % std::max(1, static_cast<int>(ups / 100.0f + 0.5f)) == 0)
 			{
 				if (ball->ActiveFlag)
-					printf("%s,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%d\n", s.name.c_str(), t,
+					printf("%s,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%d,%s\n", s.name.c_str(), t,
 					       ball->Position.X, ball->Position.Y, ball->Position.Z,
 					       ball->Direction.X * ball->Speed, ball->Direction.Y * ball->Speed,
-					       ball->CollisionMask);
+					       ball->CollisionMask,
+					       ball->CollisionComp && ball->CollisionComp->GroupName
+						       ? ball->CollisionComp->GroupName
+						       : "");
 				else
-					printf("%s,%.4f,,,,,,\n", s.name.c_str(), t);
+					printf("%s,%.4f,,,,,,,\n", s.name.c_str(), t);
 			}
 			pb::frame(dtMs);
 		}

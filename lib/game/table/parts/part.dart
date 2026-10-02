@@ -115,6 +115,29 @@ abstract class TablePart {
 
   void emit(int code) => ctx.emit(PartEvent(this, code));
 
+  /// The original's step skip when a ball passes through a line it does
+  /// not bounce off (ramp edges, rollovers, tripwires, spinners, one-way
+  /// walls).
+  ///
+  /// `pb::timed_frame` moves a ball in rays of at most half its radius;
+  /// such a line ends the ray at the crossing, and the next ray starts
+  /// there at full length again. So the ball travels the distance to the
+  /// crossing (within its half-radius ray) a second time in that frame.
+  /// Measured against the decompilation (tool/compare), this is what gets
+  /// a weak ramp shot to the top.
+  void passThrough(PinballBall ball, double? travelled) {
+    if (travelled == null || ball.isCaptured) return;
+    final ray = ctx.ballRadius / 2;
+    final extra = travelled % ray;
+    final v = ball.body.linearVelocity;
+    final speed = v.length;
+    if (extra <= 0 || speed == 0) return;
+    ball.body.setTransform(
+      ball.body.position + v * (extra / speed),
+      ball.body.rotation,
+    );
+  }
+
   void sound(int? group) => ctx.playSound(group);
 
   /// `maths::basic_collision` with a kicker: on a hit at or above the
@@ -174,13 +197,39 @@ class TriggerLine {
 
   TriggerLine get reversed => TriggerLine(x2, y2, x1, y1, layers);
 
-  bool crossedBy(PinballBall b) {
-    if (b.layers & layers == 0) return false;
+  bool crossedBy(PinballBall b) => crossingDistance(b) != null;
+
+  /// How far the ball travelled this step before it crossed the line from
+  /// its side, or null if it did not.
+  double? crossingDistance(PinballBall b) {
+    if (b.layers & layers == 0) return null;
     final mx = b.x - b.prevX, my = b.y - b.prevY;
     final dx = x2 - x1, dy = y2 - y1;
     // Normal (dy, -dx); moving against it means coming from its side.
-    if (mx * dy - my * dx >= 0) return false;
-    return segmentsIntersect(b.prevX, b.prevY, b.x, b.y, x1, y1, x2, y2);
+    if (mx * dy - my * dx >= 0) return null;
+    if (!segmentsIntersect(b.prevX, b.prevY, b.x, b.y, x1, y1, x2, y2)) {
+      return null;
+    }
+    return segmentCrossing(b.prevX, b.prevY, b.x, b.y, x1, y1, x2, y2);
+  }
+
+  /// Distance from (ax, ay) along a→b to where it meets the line c–d.
+  static double segmentCrossing(
+    double ax,
+    double ay,
+    double bx,
+    double by,
+    double cx,
+    double cy,
+    double dx,
+    double dy,
+  ) {
+    final ex = dx - cx, ey = dy - cy;
+    final d1 = ex * (ay - cy) - ey * (ax - cx);
+    final d2 = ex * (by - cy) - ey * (bx - cx);
+    final t = d1 == d2 ? 0.0 : d1 / (d1 - d2);
+    final mx = bx - ax, my = by - ay;
+    return t * math.sqrt(mx * mx + my * my);
   }
 
   static bool segmentsIntersect(
@@ -204,6 +253,45 @@ class TriggerLine {
 }
 
 /// Point-in-polygon for sensor areas (rollovers).
+/// Distance from the ball's previous position to the first edge of the
+/// polygon [pts] it crossed this step, or null.
+double? polygonCrossing(List<double> pts, PinballBall b) {
+  double? best;
+  final n = pts.length ~/ 2;
+  for (var i = 0, j = n - 1; i < n; j = i++) {
+    final (cx, cy, dx, dy) = (
+      pts[2 * j],
+      pts[2 * j + 1],
+      pts[2 * i],
+      pts[2 * i + 1],
+    );
+    if (!TriggerLine.segmentsIntersect(
+      b.prevX,
+      b.prevY,
+      b.x,
+      b.y,
+      cx,
+      cy,
+      dx,
+      dy,
+    )) {
+      continue;
+    }
+    final d = TriggerLine.segmentCrossing(
+      b.prevX,
+      b.prevY,
+      b.x,
+      b.y,
+      cx,
+      cy,
+      dx,
+      dy,
+    );
+    if (best == null || d < best) best = d;
+  }
+  return best;
+}
+
 bool insidePolygon(List<double> pts, double x, double y) {
   var inside = false;
   final n = pts.length ~/ 2;

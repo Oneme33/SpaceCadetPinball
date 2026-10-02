@@ -9,15 +9,18 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forge2d/forge2d.dart';
 import 'package:space_cadet/dat/pinball_data.dart';
+import 'package:space_cadet/game/assets/original_assets.dart';
 import 'package:space_cadet/game/physics/physics_world.dart';
 import 'package:space_cadet/game/rules/message_code.dart';
 import 'package:space_cadet/game/rules/original_rules.dart';
 import 'package:space_cadet/game/rules/score_manager.dart';
 import 'package:space_cadet/game/table/parts/light_part.dart';
+import 'package:space_cadet/game/table/parts/part.dart';
 import 'package:space_cadet/game/table/space_cadet_table.dart';
 import 'package:space_cadet/game/table/table_layout.dart';
 import 'package:space_cadet/game/ui/text_box.dart';
@@ -78,7 +81,16 @@ void main() {
         int.parse(e.key): e.value as String,
     };
     final data = PinballData.parse(dat.readAsBytesSync());
-    final csv = StringBuffer('scenario,t,x,y,z,vx,vy,mask\n');
+    // Sound lengths time some rules (a kickout holds the ball for as long
+    // as its sound), as in the game.
+    final durations = <int, double>{
+      for (final MapEntry(key: group, value: file) in data.soundFiles.entries)
+        if (File('assets/original/$file') case final f when f.existsSync())
+          group: OriginalAssets.wavDuration(
+            ByteData.sublistView(f.readAsBytesSync()),
+          ),
+    };
+    final csv = StringBuffer('scenario,t,x,y,z,vx,vy,mask,holder\n');
     for (final s in _read(scenarios!)) {
       final layout = TableLayout.fromData(data);
       final physics = PhysicsWorld(
@@ -90,6 +102,7 @@ void main() {
         layout,
         random: _NoRandom(math.Random(1)),
       );
+      table.soundDuration = (g) => durations[g] ?? -1;
       late final OriginalRules rules;
       final info = TextBox(onTimerExpired: () => rules.infoPart.expired());
       final mission = TextBox(
@@ -155,10 +168,13 @@ void main() {
             '${s.name},${t.toStringAsFixed(4)},${ball.x.toStringAsFixed(4)},'
             '${ball.y.toStringAsFixed(4)},${ball.z.toStringAsFixed(4)},'
             '${v.x.toStringAsFixed(4)},${v.y.toStringAsFixed(4)},'
-            '${ball.layers}',
+            '${ball.layers},${switch (ball.capturedBy) {
+              final TablePart p => p.name,
+              _ => '',
+            }}',
           );
         } else {
-          csv.writeln('${s.name},${t.toStringAsFixed(4)},,,,,,');
+          csv.writeln('${s.name},${t.toStringAsFixed(4)},,,,,,,');
         }
         step(0.01);
       }
