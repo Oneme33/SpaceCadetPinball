@@ -54,7 +54,14 @@ app.*.map.json
 !/assets/original/hd/
 /assets/original/hd/*
 !/assets/original/hd/README.md
-/dist/
+# Test builds: the zips in dist/ and dist/history/ are kept in git (they
+# contain the original game files: the user's decision, private repo);
+# loose APKs are not.
+/dist/*.apk
+/dist/*.apk.zip
 
 # Music render tools (downloaded by tool/music/render.sh)
 /tool/music/.cache/
+
+# Kotlin compiler session files
+/android/.kotlin/
