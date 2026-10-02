@@ -116,6 +116,9 @@ class _Title extends StatelessWidget {
   static const _violet = Color(0xFF7A5CD6);
   static const _outline = Color(0xFF2A1B5C);
 
+  /// The outline is a ring of hard shadows, not a stroke: phone fonts
+  /// are built from overlapping shapes, and a stroke draws their seams as
+  /// lines through the letters.
   Widget _outlined(String text, double size, {double spacing = 0}) {
     final style = TextStyle(
       fontSize: size,
@@ -124,16 +127,23 @@ class _Title extends StatelessWidget {
       letterSpacing: spacing,
       height: 1,
     );
+    final w = math.max(1.0, size / 22);
     return Stack(
       children: [
         Text(
           text,
           style: style.copyWith(
-            foreground: Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = size / 9
-              ..strokeJoin = StrokeJoin.round
-              ..color = _outline,
+            color: _outline,
+            shadows: [
+              for (var i = 0; i < 16; i++)
+                Shadow(
+                  color: _outline,
+                  offset: Offset(
+                    math.cos(i * math.pi / 8) * w,
+                    math.sin(i * math.pi / 8) * w,
+                  ),
+                ),
+            ],
           ),
         ),
         ShaderMask(

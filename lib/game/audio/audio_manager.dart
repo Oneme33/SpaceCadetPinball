@@ -83,19 +83,23 @@ class AudioManager {
         // Missing or unreadable: reported when first played.
       }
     }
+    // The effects are ready now; the music follows.
+    _ready = true;
     for (final file in musicFiles) {
       try {
         final data = await _bundle.load('$assetDir/$file');
+        // Streamed: decoding 8 minutes of music up front would take
+        // seconds and some 180 MB of memory.
         _music = await _backend.load(
           file,
           data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+          stream: true,
         );
         break;
       } on Object {
         // Not rendered: no music.
       }
     }
-    _ready = true;
     _updateMusic();
   }
 
@@ -149,7 +153,10 @@ class AudioManager {
 /// The audio engine behind [AudioManager]; replaced by a fake in tests.
 abstract interface class AudioBackend {
   Future<void> init({required int voices});
-  Future<Object> load(String name, Uint8List bytes);
+
+  /// Loads a sound; [stream] decodes it while it plays instead of up front
+  /// (for long music).
+  Future<Object> load(String name, Uint8List bytes, {bool stream = false});
   void play(Object source);
 
   /// Starts [source] looping and returns its handle. It must not be cut
@@ -170,7 +177,8 @@ class SoLoudBackend implements AudioBackend {
   }
 
   @override
-  Future<Object> load(String name, Uint8List bytes) => _s.loadMem(name, bytes);
+  Future<Object> load(String name, Uint8List bytes, {bool stream = false}) =>
+      _s.loadMem(name, bytes, mode: stream ? LoadMode.disk : LoadMode.memory);
 
   final List<SoundHandle> _effects = [];
 

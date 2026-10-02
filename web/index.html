@@ -18,18 +18,19 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A recreation of 3D Pinball for Windows – Space Cadet.">
+  <meta name="description" content="Play Space Cadet, the pinball table from Windows, free in your browser.">
+  <meta name="theme-color" content="#000000">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="space_cadet">
+  <meta name="apple-mobile-web-app-title" content="Space Cadet">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>3D Pinball — Space Cadet</title>
+  <title>Play Space Cadet Pinball</title>
   <link rel="manifest" href="manifest.json">
   <style>
     /* Until Flutter draws its own splash screen: the same title on black,
@@ -42,7 +43,11 @@
     }
     #boot .t { text-align: center; line-height: 1; }
     #boot .t span {
-      display: block; color: #b8a4f0; -webkit-text-stroke: 1px #2a1b5c;
+      display: block; color: #b8a4f0;
+      /* An outline that follows only the outer edge (a text stroke draws
+         the seams of overlapping glyph shapes on phones). */
+      filter: drop-shadow(1px 0 0 #2a1b5c) drop-shadow(-1px 0 0 #2a1b5c)
+              drop-shadow(0 1px 0 #2a1b5c) drop-shadow(0 -1px 0 #2a1b5c);
       background: linear-gradient(#e6dcff, #b8a4f0, #7a5cd6);
       -webkit-background-clip: text; background-clip: text;
       -webkit-text-fill-color: transparent;

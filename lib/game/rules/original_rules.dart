@@ -34,6 +34,9 @@ class OriginalRules extends _RulesBase
     super.random,
   });
 
+  /// Longest wait from New Game to the first ball (see `NewGame`).
+  static const startDelay = 1.0;
+
   /// Length of the high score table.
   static const highScoreCount = _RulesBase.highScoreCount;
 
@@ -207,6 +210,10 @@ class TableState {
           lightGroup.message(MC.tLightGroupLightShowAnimation, 0.2);
           var time = r.table.playTableSound(start: true);
           if (time < 0) time = 5;
+          // Not original: the original feeds the first ball only when the
+          // start tune (several seconds) has played; here after at most
+          // [OriginalRules.startDelay], the tune and light show play on.
+          time = math.min(time, OriginalRules.startDelay);
           _lightShowTimer = r.timers.set(time, () {
             _lightShowTimer = null;
             message(MC.startGamePlayer1, 0);

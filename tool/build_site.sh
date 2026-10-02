@@ -15,7 +15,7 @@ rm -rf "$OUT"
 mkdir -p "$OUT/download"
 flutter build web --release --base-href /play/
 cp -R build/web "$OUT/play"
-cp site/*.html site/*.css site/*.js "$OUT/"
+cp site/*.html site/*.css site/*.js site/*.txt site/*.xml site/*.png "$OUT/"
 cp web/icons/Icon-512.png "$OUT/icon.png"
 ZIP=$(ls -t dist/space-cadet-*.zip 2>/dev/null | head -1)
 if [ -n "$ZIP" ]; then

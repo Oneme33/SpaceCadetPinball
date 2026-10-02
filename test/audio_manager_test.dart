@@ -11,7 +11,11 @@ class _FakeBackend implements AudioBackend {
   Future<void> init({required int voices}) async => this.voices = voices;
 
   @override
-  Future<Object> load(String name, Uint8List bytes) async => name;
+  Future<Object> load(
+    String name,
+    Uint8List bytes, {
+    bool stream = false,
+  }) async => name;
 
   @override
   void play(Object source) => played.add(source as String);

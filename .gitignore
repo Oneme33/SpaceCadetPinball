@@ -59,6 +59,7 @@ app.*.map.json
 # loose APKs are not.
 /dist/*.apk
 /dist/*.apk.zip
+/dist/history/*.apk.zip
 
 # Music render tools (downloaded by tool/music/render.sh)
 /tool/music/.cache/

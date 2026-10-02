@@ -345,6 +345,11 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
     audio
       ..enabled = settings.sound
       ..musicEnabled = settings.music;
+    // Apps may load their sounds right away; browsers only after a tap.
+    if (!kIsWeb) {
+      loading.value = (0.82, 'Loading sounds');
+      await audio.start();
+    }
     if (originals != null) {
       try {
         await rootBundle.load(
@@ -356,7 +361,7 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
       }
     }
     if (settings.hd && hdInstalled) {
-      loading.value = (0.85, 'Loading HD graphics');
+      loading.value = (0.92, 'Loading HD graphics');
       await setHd(true);
     }
     await _prepareCadetCar();

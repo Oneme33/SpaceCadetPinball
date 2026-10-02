@@ -3,16 +3,65 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Space Cadet Pinball</title>
-  <meta name="description" content="A fan-made recreation of 3D Pinball for Windows – Space Cadet. Play in your browser or on Android.">
+  <title>Space Cadet Pinball – play 3D Pinball for Windows online and on Android</title>
+  <meta name="description" content="Play Space Cadet, the pinball table from Windows XP, free in your browser or as an Android app. The original table, rules, missions and sounds, rebuilt to play just like the original.">
+  <link rel="canonical" href="https://space-cadet.nl/">
+  <meta name="theme-color" content="#06041a">
   <link rel="icon" type="image/png" href="icon.png">
+  <link rel="apple-touch-icon" href="icon.png">
+
+  <!-- Link previews (WhatsApp, Facebook, LinkedIn, X). -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Space Cadet Pinball">
+  <meta property="og:title" content="Space Cadet Pinball – the Windows pinball, in your browser">
+  <meta property="og:description" content="The pinball table from Windows, rebuilt to play just like the original. Free in your browser and on Android.">
+  <meta property="og:url" content="https://space-cadet.nl/">
+  <meta property="og:image" content="https://space-cadet.nl/share.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <!-- For search engines: what this is. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "VideoGame",
+    "name": "Space Cadet Pinball",
+    "alternateName": ["3D Pinball Space Cadet", "Space Cadet", "Windows Pinball"],
+    "url": "https://space-cadet.nl/",
+    "image": "https://space-cadet.nl/share.png",
+    "description": "A fan-made recreation of 3D Pinball for Windows – Space Cadet, playable in the browser and on Android.",
+    "genre": ["Pinball", "Arcade"],
+    "gamePlatform": ["Web browser", "Android"],
+    "applicationCategory": "Game",
+    "operatingSystem": "Web, Android",
+    "playMode": "SinglePlayer",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" }
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      { "@type": "Question", "name": "Is Space Cadet Pinball free?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. You can play it free in your browser or install the free Android app." } },
+      { "@type": "Question", "name": "Does it play like the Windows original?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes: the table, the rules and every mission come from the original, and the physics are measured against the original game." } },
+      { "@type": "Question", "name": "How do I install it on Android?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Download the app from this page, open the file and allow your browser to install apps. If Play Protect asks, choose Install anyway: the app does not come from the Play Store." } },
+      { "@type": "Question", "name": "Can I play on my phone in the browser?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. On a phone the table fills the screen and the view follows the ball; tap the left or right half of the screen for the flippers." } }
+    ]
+  }
+  </script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <canvas id="stars" aria-hidden="true"></canvas>
 
   <header class="hero">
-    <img class="icon" src="icon.png" alt="" width="96" height="96">
+    <img class="icon" src="icon.png" alt="Space Cadet Pinball icon: a chrome pinball as a ringed planet" width="96" height="96">
     <h1 class="logo"><span class="small">3D Pinball</span><span class="big">Space Cadet</span></h1>
     <p class="tagline">The pinball table from Windows, rebuilt to play just like the original —
       in your browser and on your phone.</p>
@@ -55,6 +104,39 @@
           <li>If Play Protect asks, choose <em>Install anyway</em>: the app does not come from the Play Store.</li>
         </ol>
       </div>
+    </section>
+
+    <section class="panel two">
+      <div>
+        <h2>How to play</h2>
+        <ul class="ticks">
+          <li><strong>Flippers:</strong> Z and / (or the Shift keys, or the arrow keys). On a phone: the left and right half of the screen.</li>
+          <li><strong>Plunger:</strong> hold Space, release to launch; the longer you pull, the harder the shot. On a phone: hold the right half while the ball waits.</li>
+          <li><strong>Bump the table:</strong> X, . and ↑ — but bump too much and the table tilts.</li>
+          <li><strong>Menu:</strong> Esc or P, or the menu button on a phone. It has a full guide to the missions and scoring.</li>
+        </ul>
+      </div>
+      <div>
+        <h2>Missions and ranks</h2>
+        <p>As in the original you are a space cadet working your way up the ranks, from Cadet to Fleet Admiral.
+          Light the mission lights, take a mission at the hyperspace kicker and complete it on the table:
+          hit targets, shoot the ramps, find the wormholes and the black hole. Fill the fuel gauge, build
+          the field multiplier with the drop targets and go for multiball.</p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Questions</h2>
+      <dl class="faq">
+        <dt>Is it free?</dt>
+        <dd>Yes. Play in your browser, or install the free Android app.</dd>
+        <dt>Does it play like the Windows original?</dt>
+        <dd>Yes: the table, the rules and every mission come from the original, and the physics are measured against the original game.</dd>
+        <dt>Can I play on my phone in the browser?</dt>
+        <dd>Yes. The table fills the screen and the view follows the ball. The Android app also works offline.</dd>
+        <dt>Is there an easy mode?</dt>
+        <dd>Yes, with longer flippers, a centre post that stays up and kickbacks that never close — for a relaxed game. It keeps its own high scores.</dd>
+      </dl>
     </section>
 
     <section class="panel" id="support-panel" hidden>

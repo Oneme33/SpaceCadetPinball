@@ -38,7 +38,10 @@ a { color: var(--lavender); }
   background: linear-gradient(#e6dcff, var(--lavender), var(--violet));
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent;
-  -webkit-text-stroke: 1px var(--outline);
+  /* An outline that follows only the outer edge (a text stroke draws the
+     seams of overlapping glyph shapes on phones). */
+  filter: drop-shadow(1px 0 0 var(--outline)) drop-shadow(-1px 0 0 var(--outline))
+          drop-shadow(0 1px 0 var(--outline)) drop-shadow(0 -1px 0 var(--outline));
 }
 .logo .small { font-size: clamp(22px, 5vw, 34px); letter-spacing: 1px; margin-bottom: 6px; }
 .logo .big { font-size: clamp(48px, 12vw, 92px); }
@@ -106,6 +109,10 @@ main { max-width: 980px; margin: 0 auto; padding: 0 16px 40px; }
 .ticks, .steps { margin: 0; padding-left: 20px; color: #d8d4ee; }
 .ticks li, .steps li { margin: 6px 0; }
 .ticks li::marker { content: "✦  "; color: var(--blue); }
+
+.faq { margin: 0; color: #d8d4ee; }
+.faq dt { margin-top: 12px; font-weight: 700; color: var(--white); }
+.faq dd { margin: 4px 0 0; }
 
 footer {
   max-width: 980px; margin: 0 auto; padding: 24px 16px 48px;
