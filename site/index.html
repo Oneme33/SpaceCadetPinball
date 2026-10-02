@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Space Cadet Pinball</title>
+  <meta name="description" content="A fan-made recreation of 3D Pinball for Windows – Space Cadet. Play in your browser or on Android.">
+  <link rel="icon" type="image/png" href="icon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="stars" aria-hidden="true"></canvas>
+
+  <header class="hero">
+    <img class="icon" src="icon.png" alt="" width="96" height="96">
+    <h1 class="logo"><span class="small">3D Pinball</span><span class="big">Space Cadet</span></h1>
+    <p class="tagline">The pinball table from Windows, rebuilt to play just like the original —
+      in your browser and on your phone.</p>
+    <nav class="actions">
+      <a class="button primary" href="#play" id="play-button">▶ Play in your browser</a>
+      <a class="button" href="download/space-cadet.apk" download id="apk-button">⬇ Android app <small id="apk-size"></small></a>
+      <a class="button support" href="#" id="support-button" target="_blank" rel="noopener" hidden>♥ Support the project</a>
+    </nav>
+  </header>
+
+  <main>
+    <section id="play" class="panel">
+      <h2>Play</h2>
+      <div class="screen" id="screen">
+        <button class="start" id="start" type="button">
+          <span>Launch the table</span>
+          <small>Keyboard: Z and / for the flippers, Space for the plunger, Esc for the menu</small>
+        </button>
+      </div>
+      <p class="hint"><a href="play/" target="_blank" rel="noopener">Open full screen ↗</a>
+        · On a phone, the full-screen version plays best.</p>
+    </section>
+
+    <section class="panel two">
+      <div>
+        <h2>Like the original</h2>
+        <ul class="ticks">
+          <li>The table, the rules and every mission of the original, ported from its source.</li>
+          <li>Physics measured against the original game: flippers, bumpers, ramps and kickouts behave the same.</li>
+          <li>Classic pixels or sharp HD graphics, the original sounds and music.</li>
+          <li>On phones: the table fills the screen and the view follows the ball.</li>
+          <li>An easy mode with longer flippers, for a relaxed game.</li>
+        </ul>
+      </div>
+      <div>
+        <h2>On Android</h2>
+        <ol class="steps">
+          <li>Download the app with the button above.</li>
+          <li>Open the file; allow your browser to install apps when Android asks.</li>
+          <li>If Play Protect asks, choose <em>Install anyway</em>: the app does not come from the Play Store.</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="panel" id="support-panel" hidden>
+      <h2>Support</h2>
+      <p>Enjoying it? This is a free hobby project. A small contribution keeps it going.</p>
+      <p><a class="button support" href="#" id="support-button-2" target="_blank" rel="noopener">♥ Support the project</a></p>
+    </section>
+  </main>
+
+  <footer>
+    <p>A fan-made recreation, not affiliated with or endorsed by Microsoft.
+      3D Pinball for Windows – Space Cadet © Microsoft and Cinematronics.</p>
+    <p>Built with Flutter, Flame and Box2D. Rules and physics after the
+      <a href="https://github.com/k4zmu2a/SpaceCadetPinball">SpaceCadetPinball</a> decompilation (MIT).
+      Music played with <a href="https://github.com/schellingb/TinySoundFont">TinySoundFont</a> and
+      <a href="https://github.com/mrbumpy409/GeneralUser-GS">GeneralUser GS</a>.</p>
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="site.js"></script>
+</body>
+</html>

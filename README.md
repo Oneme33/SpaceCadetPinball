@@ -68,6 +68,21 @@ focus; it then continues where it was instead of starting over. Sound
 effects and music switch on and off apart in the menu. (`PINBALL2.MID` is
 no music: it is a bitmap font in MIDI clothing.)
 
+## Website
+
+`site/` is a landing page in the game's style: play in the browser (the
+game loads only when asked for; phones go to the full-screen version), the
+Android download, and a support button that appears once a link is set in
+`site/config.js`. Put it together and try it locally:
+
+```bash
+tool/release_apk.sh            # newest APK into dist/
+tool/build_site.sh --serve     # build/site/, on http://localhost:8124
+```
+
+`build/site/` holds the game with its original files, so it stays out of
+git and is not published.
+
 ## Pause menu and settings
 
 Esc, P, a tap on the scoreboard or the menu button of the phone bar opens
