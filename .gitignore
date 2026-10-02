@@ -54,3 +54,4 @@ app.*.map.json
 !/assets/original/hd/
 /assets/original/hd/*
 !/assets/original/hd/README.md
+/dist/
