@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flame/camera.dart';
@@ -12,6 +13,7 @@ import 'package:flutter/widgets.dart' show KeyEventResult;
 import '../dat/pinball_data.dart';
 import 'assets/original_assets.dart';
 import 'audio/audio_manager.dart';
+import 'physics/ball.dart';
 import 'debug/debug_layer.dart';
 import 'game_config.dart';
 import 'feedback/haptic_manager.dart';
@@ -50,9 +52,9 @@ import 'ui/screen_layout.dart';
 /// The Flame world is in screen space (the original 600 × 416 virtual
 /// screen). Physics runs separately in table space, see [PhysicsWorld].
 ///
-/// Two cameras look at that world: [camera] shows the playfield (or, in
-/// the original landscape layout, the whole screen) and [scoreboardCamera]
-/// shows the scoreboard on top in portrait. [ScreenLayout] decides.
+/// The camera shows the whole original screen (landscape) or, on a phone
+/// held upright, the playfield at full height, following the ball, under
+/// the app's own bar. [ScreenLayout] decides.
 class SpaceCadetGame extends FlameGame with KeyboardEvents {
   SpaceCadetGame()
     : super(
@@ -67,6 +69,9 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
   static const pauseOverlay = 'pause';
   static const attractOverlay = 'attract';
   static const gameOverOverlay = 'gameOver';
+
+  /// The phone bar: score, ball, messages, menu button.
+  static const hudOverlay = 'hud';
 
   late final GameStateMachine gameState = GameStateMachine(onChanged: _onPhase);
   final InputState input = InputState();
@@ -91,13 +96,17 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
   late final TableProjection projection;
   late final SpaceCadetTable table;
 
-  late final CameraComponent scoreboardCamera = CameraComponent(
-    world: world,
-    viewport: FixedSizeViewport(0, 0),
-  );
   ScreenLayout layoutOnScreen = ScreenLayout.compute(
     const Size(GameConfig.screenWidth, GameConfig.screenHeight),
   );
+  Size _canvas = const Size(GameConfig.screenWidth, GameConfig.screenHeight);
+
+  /// Where the phone view is over the playfield (see [ScreenLayout.pan]).
+  double _pan = 0.5;
+
+  /// How fast the phone view catches up with the ball: the time constant
+  /// of its smoothing, in seconds.
+  static const panLag = 0.12;
 
   /// Null when the original files are not installed.
   OriginalAssets? originals;
@@ -212,13 +221,21 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
   @override
   Color backgroundColor() => const Color(0xFF000000);
 
+  /// Loading progress for the splash screen: share done and what is
+  /// being loaded.
+  final ValueNotifier<(double, String)> loading = ValueNotifier((
+    0,
+    'Starting',
+  ));
+
   @override
   Future<void> onLoad() async {
-    add(scoreboardCamera);
     _applyLayout();
 
     settings = await Settings.load();
+    loading.value = (0.1, 'Loading the table');
     final originals = this.originals = await OriginalAssets.load();
+    loading.value = (0.55, 'Building the table');
     if (originals != null) {
       final camera = CameraProjection(originals.data.camera);
       layout = TableLayout.fromData(originals.data);
@@ -311,6 +328,7 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
         ..add(PlaceholderParts(table, projection));
     }
     world.add(BallsComponent(table, projection, ballRenderer));
+    loading.value = (0.75, 'Lighting up the scoreboard');
     await _addScoreboard(originals);
 
     if (GameConfig.debug) {
@@ -337,9 +355,14 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
         hdInstalled = false;
       }
     }
-    if (settings.hd && hdInstalled) await setHd(true);
+    if (settings.hd && hdInstalled) {
+      loading.value = (0.85, 'Loading HD graphics');
+      await setHd(true);
+    }
     await _prepareCadetCar();
     if (settings.easy) setEasy(true);
+    _showHud();
+    loading.value = (1, 'Ready');
 
     gameState.handle(GameEvent.assetsLoaded);
   }
@@ -380,7 +403,33 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
   @override
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
-    layoutOnScreen = ScreenLayout.compute(Size(size.x, size.y));
+    _canvas = Size(size.x, size.y);
+    layoutOnScreen = ScreenLayout.compute(_canvas, pan: _pan);
+    _applyLayout();
+    if (isLoaded) _showHud();
+  }
+
+  void _showHud() =>
+      _overlay(hudOverlay, layoutOnScreen.mode == LayoutMode.phone);
+
+  /// The phone view follows the ball nearest the flippers (the one that
+  /// needs the player), keeping it in the middle part of the screen; with
+  /// no ball in play it rests on the plunger lane's side.
+  void _followBall(double dt) {
+    final l = layoutOnScreen;
+    if (l.panRange <= 0) return;
+    PinballBall? lowest;
+    for (final b in table.balls) {
+      if (lowest == null || b.y > lowest.y) lowest = b;
+    }
+    final target = lowest == null
+        ? _pan
+        : l.panToShow(projection.toScreen(lowest.x, lowest.y).dx, _pan);
+    final k = 1 - math.exp(-dt / panLag);
+    final next = _pan + (target - _pan) * k;
+    if ((next - _pan).abs() < 1e-5) return;
+    _pan = next;
+    layoutOnScreen = ScreenLayout.compute(_canvas, pan: _pan);
     _applyLayout();
   }
 
@@ -392,14 +441,9 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
       l.tableView,
       l.tableSource.translate(-_shiftX * 1.0, -_shiftY * 1.0),
     );
-    _aim(scoreboardCamera, l.scoreboardView, l.scoreboardSource);
   }
 
-  static void _aim(CameraComponent cam, Rect? view, Rect? source) {
-    if (view == null || source == null) {
-      cam.viewport.size = Vector2.zero();
-      return;
-    }
+  static void _aim(CameraComponent cam, Rect view, Rect source) {
     cam.viewport
       ..position = Vector2(view.left, view.top)
       ..size = Vector2(view.width, view.height);
@@ -426,6 +470,7 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
     if (gameState.isSimulating || GameConfig.debug && !gameState.isPaused) {
       physics.advance(dt);
     }
+    _followBall(dt);
   }
 
   @override
@@ -438,6 +483,11 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
 
   /// The scoreboard's ball number: `MaxBallCount - BallCount + 1`, erased
   /// when no ball is left (`TPinballTable::ChangeBallCount`).
+  /// For the phone bar: the scoreboard's ball number and score, null when
+  /// the scoreboard shows none.
+  int? get ballNumber => _ballNumber;
+  int? get shownScore => _scoreShown ? score.score : null;
+
   int? get _ballNumber {
     final count = rules.t.ballCount;
     return count > 0 ? TableState.maxBallCount - count + 1 : null;
@@ -625,6 +675,22 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
   void handlePointer(PointerEvent e) {
     if (e.kind != PointerDeviceKind.touch) return;
     final source = ('touch', e.pointer);
+    if (e is PointerDownEvent && layoutOnScreen.mode == LayoutMode.phone) {
+      // The bar has its own menu button.
+      if (e.localPosition.dy < ScreenLayout.hudHeight) return;
+      // The view moves, so the halves of the screen, not of the table,
+      // are the flippers; with a ball waiting on the plunger the right
+      // half pulls it instead (the lane may be partly out of view).
+      final right = e.localPosition.dx >= size.x / 2;
+      final action = right && table.ballOnPlunger
+          ? GameAction.plunger
+          : right
+          ? GameAction.rightFlipper
+          : GameAction.leftFlipper;
+      _touchActions[e.pointer] = action;
+      if (input.press(action, source)) onActionPressed(action);
+      return;
+    }
     if (e is PointerDownEvent) {
       final screen = layoutOnScreen.toScreen(e.localPosition);
       if (screen != null && ScreenLayout.isScoreboard(screen)) {

@@ -210,6 +210,19 @@ class SpaceCadetTable {
   /// `PlungerStartFeedTimer`'s sound, played when a ball is on its way.
   void playFeedSound() => playSound?.call(_plungerVisual?.sound4);
 
+  /// A ball waits in the plunger lane, at the plunger.
+  bool get ballOnPlunger {
+    final s = layout.plunger;
+    final lo = math.min(s.x1, s.x2), hi = math.max(s.x1, s.x2);
+    return balls.any(
+      (b) =>
+          !b.isCaptured &&
+          b.x >= lo &&
+          b.x <= hi &&
+          b.y >= s.feedY - layout.ballRadius,
+    );
+  }
+
   void pressPlunger() {
     if (!plunger.pulling) playSound?.call(_plungerVisual?.hardHitSound);
     plunger.press();

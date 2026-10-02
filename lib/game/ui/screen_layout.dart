@@ -7,10 +7,11 @@ enum LayoutMode {
   /// The original window: playfield left, scoreboard right, letterboxed.
   landscape,
 
-  /// Phones held upright: scoreboard on top (it is also the menu button),
-  /// playfield at the bottom filling the width, so the flippers sit under
-  /// the thumbs.
-  portrait,
+  /// Phones held upright: a slim bar with score, ball, messages and the
+  /// menu button on top ([ScreenLayout.hudHeight], drawn by the app), the
+  /// playfield below it at the full height of the screen. It is wider than
+  /// the screen then, so the view follows the ball sideways ([pan]).
+  phone,
 }
 
 /// Where the playfield and the scoreboard go on the device, in canvas
@@ -23,54 +24,60 @@ class ScreenLayout {
     required this.mode,
     required this.tableView,
     required this.tableSource,
-    this.scoreboardView,
-    this.scoreboardSource,
+    this.panRange = 0,
   });
 
-  /// The whole scoreboard sprite, logo included.
-  static const scoreboardFull = GameConfig.scoreboardRect;
+  /// Height of the phone bar above the playfield, in canvas pixels.
+  static const hudHeight = 64.0;
 
-  /// Scoreboard without the logo: from the BALL counter (y 152) down to
-  /// the mission text box (bottom 391), with a small margin.
-  static const scoreboardCompact = Rect.fromLTRB(386, 144, 589, 400);
-
-  /// Portrait needs at least this much room above the playfield for the
-  /// scoreboard, in canvas pixels; otherwise the original layout is used.
-  static const minScoreboardHeight = 90.0;
+  /// Upright screens narrower than this (width ÷ height) get the phone
+  /// layout; squarer ones keep the original window.
+  static const maxPhoneAspect = 0.8;
 
   final LayoutMode mode;
   final Rect tableView;
   final Rect tableSource;
-  final Rect? scoreboardView;
-  final Rect? scoreboardSource;
+
+  /// How far, in original screen pixels, the phone view can move sideways
+  /// over the playfield; 0 when the whole width fits.
+  final double panRange;
 
   double get tableScale => tableView.width / tableSource.width;
 
-  static ScreenLayout compute(Size canvas) {
+  /// [pan] places the phone view over the playfield: 0 at its left edge,
+  /// 1 at its right edge (the plunger lane).
+  static ScreenLayout compute(Size canvas, {double pan = 0.5}) {
     final w = canvas.width, h = canvas.height;
-    const play = GameConfig.playfieldRect;
-    final s = w / play.width;
-    final tableHeight = play.height * s;
-    final room = h - tableHeight;
-    if (w >= h || room < minScoreboardHeight) return _landscape(canvas);
+    if (w >= h * maxPhoneAspect || h <= hudHeight) return _landscape(canvas);
 
-    final tableView = Rect.fromLTWH(0, room, w, tableHeight);
-    final area = Rect.fromLTWH(0, 0, w, room);
-    final fullScale = _fit(scoreboardFull.size, area.size);
-    // The logo is worth showing only if the scoreboard stays about as large
-    // as the playfield; otherwise the compact part, at table scale.
-    final source = fullScale >= 0.8 * s ? scoreboardFull : scoreboardCompact;
-    final scale = math.min(_fit(source.size, area.size), s);
+    const play = GameConfig.playfieldRect;
+    final area = Rect.fromLTRB(0, hudHeight, w, h);
+    final scale = area.height / play.height;
+    final visible = w / scale;
+    if (visible >= play.width) {
+      // Wide enough for the whole playfield at full height: centred.
+      final s = _fit(play.size, area.size);
+      return ScreenLayout._(
+        mode: LayoutMode.phone,
+        tableSource: play,
+        tableView: Rect.fromCenter(
+          center: area.center,
+          width: play.width * s,
+          height: play.height * s,
+        ),
+      );
+    }
+    final range = play.width - visible;
     return ScreenLayout._(
-      mode: LayoutMode.portrait,
-      tableView: tableView,
-      tableSource: play,
-      scoreboardSource: source,
-      scoreboardView: Rect.fromCenter(
-        center: area.center,
-        width: source.width * scale,
-        height: source.height * scale,
+      mode: LayoutMode.phone,
+      tableView: area,
+      tableSource: Rect.fromLTWH(
+        play.left + range * pan.clamp(0.0, 1.0),
+        play.top,
+        visible,
+        play.height,
       ),
+      panRange: range,
     );
   }
 
@@ -96,23 +103,31 @@ class ScreenLayout {
   static double _fit(Size inner, Size outer) =>
       math.min(outer.width / inner.width, outer.height / inner.height);
 
-  /// Maps a canvas point to the original screen, or null outside both
-  /// views (letterbox bands).
+  /// The [pan] that brings original screen x [x] into view, keeping it in
+  /// the middle [keep] share of the view; [current] if it is already there.
+  double panToShow(double x, double current, {double keep = 0.4}) {
+    if (panRange <= 0) return current;
+    final visible = tableSource.width;
+    final left = GameConfig.playfieldRect.left + panRange * current;
+    final margin = visible * (1 - keep) / 2;
+    var target = left;
+    if (x < left + margin) target = x - margin;
+    if (x > left + visible - margin) target = x - visible + margin;
+    return ((target - GameConfig.playfieldRect.left) / panRange).clamp(
+      0.0,
+      1.0,
+    );
+  }
+
+  /// Maps a canvas point to the original screen, or null outside the view
+  /// (letterbox bands, the phone bar).
   Offset? toScreen(Offset canvas) {
-    for (final (view, source) in [
-      (tableView, tableSource),
-      if (scoreboardView case final v?) (v, scoreboardSource!),
-    ]) {
-      if (view.contains(canvas)) {
-        final k = view.width / source.width;
-        return source.topLeft + (canvas - view.topLeft) / k;
-      }
-    }
-    return null;
+    if (!tableView.contains(canvas)) return null;
+    return tableSource.topLeft + (canvas - tableView.topLeft) / tableScale;
   }
 
   /// True when [screen] (original screen coordinates) is on the scoreboard,
-  /// which doubles as the menu button.
+  /// which doubles as the menu button in the original window.
   static bool isScoreboard(Offset screen) =>
       GameConfig.scoreboardRect.contains(screen);
 }

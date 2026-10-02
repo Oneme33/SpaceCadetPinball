@@ -70,7 +70,8 @@ no music: it is a bitmap font in MIDI clothing.)
 
 ## Pause menu and settings
 
-Esc, P or a tap on the scoreboard opens it: resume, new game, a "How to
+Esc, P, a tap on the scoreboard or the menu button of the phone bar opens
+it: resume, new game, a "How to
 Play" guide (written from the ported rules), the high scores (normal and
 easy), mode (Normal/Easy), graphics
 (Classic/HD), sound and music on/off (side by side) and, on phones,
@@ -104,26 +105,20 @@ to a separate easy high score table.
 
 ## Screen layout
 
-- **Landscape / desktop**: the original window — playfield left,
-  scoreboard right — scaled uniformly and letterboxed.
-- **Portrait (phones, the default way to hold them)**: scoreboard on top,
-  playfield at the bottom filling the width, so the flippers sit under the
-  thumbs and the scoreboard (the menu button) is out of their way. Tall
-  screens show the whole scoreboard with its logo; shorter ones show it from
-  the BALL counter down. Nothing is ever stretched.
+- **Desktop and landscape:** the original window, playfield left and
+  scoreboard right, letterboxed.
+- **Phones held upright:** the playfield at the full height of the screen,
+  under a slim bar with ball and score, the two message boxes and a menu
+  button. The playfield is wider than the screen then, so the view slides
+  sideways after the ball nearest the flippers, keeping it in the middle
+  part of the screen, and rests on the plunger lane when a ball waits
+  there. The halves of the screen are the flippers; with a ball on the
+  plunger the right half pulls it. The app runs full screen (a swipe from
+  the edge shows the system bars).
 
-See `lib/game/ui/screen_layout.dart`.
-
-Debug mode shows FPS, physics rate, game phase, held inputs, ball speed and
-the table coordinates under the pointer. It draws every wall from the DAT
-over the art (**G** toggles) and spawns a test ball wherever you click.
-
-Tools:
-
-```bash
-dart run tool/dat_info.dart       # summary of PINBALL.DAT
-dart run tool/element_map.dart    # regenerates docs/ELEMENT_MAP.md
-```
+A splash screen (starfield, title, a progress bar in the scoreboard's
+metal) covers the loading on every platform; the Android launch screen and
+the web page start black, so nothing flashes white before it.
 
 ## Architecture
 

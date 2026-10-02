@@ -9,6 +9,7 @@ import '../rules/original_rules.dart';
 import '../rules/score_manager.dart';
 import '../space_cadet_game.dart';
 import 'cadet_flights.dart';
+import 'screen_layout.dart';
 
 /// Flutter overlays: the start and game-over banners and the pause menu.
 /// Only for menus: nothing here rebuilds during play.
@@ -19,6 +20,7 @@ import 'cadet_flights.dart';
 Map<String, Widget Function(BuildContext, SpaceCadetGame)> overlayBuilders() =>
     {
       SpaceCadetGame.pauseOverlay: (context, game) => _PauseMenu(game: game),
+      SpaceCadetGame.hudOverlay: (context, game) => _PhoneHud(game: game),
       SpaceCadetGame.gameOverOverlay: (context, game) => _Banner(
         title: 'Game Over',
         hint: 'Press F2 or Enter, or tap, for a new game',
@@ -74,6 +76,160 @@ class _Banner extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The phone bar, in place of the scoreboard: ball and score, the two
+/// message boxes and the menu button, in the scoreboard's colours.
+///
+/// It reads the game a few times a second and rebuilds only on a change.
+class _PhoneHud extends StatefulWidget {
+  const _PhoneHud({required this.game});
+  final SpaceCadetGame game;
+
+  @override
+  State<_PhoneHud> createState() => _PhoneHudState();
+}
+
+class _PhoneHudState extends State<_PhoneHud>
+    with SingleTickerProviderStateMixin {
+  late final Ticker _ticker = createTicker(_poll);
+  Duration _last = Duration.zero;
+  (int?, int?, String?, String?) _shown = (null, null, null, null);
+
+  SpaceCadetGame get game => widget.game;
+
+  (int?, int?, String?, String?) _read() => (
+    game.ballNumber,
+    game.shownScore,
+    game.infoText.text,
+    game.missionText.text,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _shown = _read();
+    _ticker.start();
+  }
+
+  void _poll(Duration now) {
+    if (now - _last < const Duration(milliseconds: 80)) return;
+    _last = now;
+    final v = _read();
+    if (v != _shown) setState(() => _shown = v);
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final (ball, score, info, mission) = _shown;
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Container(
+        height: ScreenLayout.hudHeight,
+        padding: const EdgeInsets.fromLTRB(6, 5, 6, 6),
+        decoration: const BoxDecoration(
+          color: _metal,
+          border: Border(
+            top: BorderSide(color: _metalLight, width: 2),
+            bottom: BorderSide(color: _metalDark, width: 2),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              width: 112,
+              child: _Panel(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        ball == null ? 'BALL' : 'BALL $ball',
+                        style: _label.copyWith(
+                          color: _red,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          height: 1.1,
+                        ),
+                      ),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          score == null ? '' : ScoreManager.format(score),
+                          style: const TextStyle(
+                            color: _blue,
+                            fontSize: 21,
+                            fontWeight: FontWeight.w800,
+                            height: 1.15,
+                            fontFeatures: [ui.FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 5),
+            Expanded(
+              child: _Panel(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        info ?? '',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _label.copyWith(fontSize: 13, height: 1.2),
+                      ),
+                      Text(
+                        mission ?? '',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: _label.copyWith(
+                          fontSize: 11,
+                          height: 1.15,
+                          color: _metalLight,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 5),
+            AspectRatio(
+              aspectRatio: 1,
+              child: _Panel(
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: InkWell(
+                    onTap: game.togglePause,
+                    splashColor: const Color(0x333C5CFF),
+                    child: const Center(
+                      child: Icon(Icons.menu, color: _white, size: 26),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

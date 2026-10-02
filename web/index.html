@@ -31,8 +31,49 @@
 
   <title>3D Pinball — Space Cadet</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    /* Until Flutter draws its own splash screen: the same title on black,
+       so the page never flashes white. Removed on Flutter's first frame. */
+    html, body { margin: 0; height: 100%; background: #000; }
+    #boot {
+      position: fixed; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 36px;
+      font-family: system-ui, sans-serif; font-style: italic; font-weight: 900;
+    }
+    #boot .t { text-align: center; line-height: 1; }
+    #boot .t span {
+      display: block; color: #b8a4f0; -webkit-text-stroke: 1px #2a1b5c;
+      background: linear-gradient(#e6dcff, #b8a4f0, #7a5cd6);
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    #boot .t .s { font-size: min(29px, 7vw); letter-spacing: 1px; margin-bottom: 8px; }
+    #boot .t .b { font-size: min(64px, 16vw); }
+    #boot .bar {
+      width: 280px; height: 12px; padding: 3px; background: #000;
+      border: 3px solid; border-color: #dcdcdc #4c4c4c #4c4c4c #dcdcdc;
+      outline: 3px solid #9c9c9c; overflow: hidden;
+    }
+    #boot .bar i {
+      display: block; width: 30%; height: 100%;
+      background: linear-gradient(#8fa2ff, #4e6cff, #2b3fb0);
+      animation: boot 1.4s ease-in-out infinite alternate;
+    }
+    @keyframes boot { from { margin-left: 0 } to { margin-left: 70% } }
+    @media (prefers-reduced-motion: reduce) { #boot .bar i { animation: none; } }
+  </style>
 </head>
 <body>
+  <div id="boot" aria-label="Loading">
+    <div class="t"><span class="s">3D Pinball</span><span class="b">Space Cadet</span></div>
+    <div class="bar"><i></i></div>
+  </div>
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var boot = document.getElementById('boot');
+      if (boot) boot.remove();
+    });
+  </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader
