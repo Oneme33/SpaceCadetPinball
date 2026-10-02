@@ -39,7 +39,10 @@ void main(List<String> args) {
   for (final e in source.listSync()) {
     if (e is! File) continue;
     final name = e.uri.pathSegments.last.toUpperCase();
-    if (name == 'PINBALL.DAT' || name == 'FONT.DAT' || name.endsWith('.WAV')) {
+    if (name == 'PINBALL.DAT' ||
+        name == 'FONT.DAT' ||
+        name == 'PINBALL.MID' ||
+        name.endsWith('.WAV')) {
       e.copySync('${target.path}/$name');
       copied++;
     }

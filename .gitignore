@@ -55,3 +55,6 @@ app.*.map.json
 /assets/original/hd/*
 !/assets/original/hd/README.md
 /dist/
+
+# Music render tools (downloaded by tool/music/render.sh)
+/tool/music/.cache/

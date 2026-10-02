@@ -198,10 +198,29 @@ class _PauseMenuState extends State<_PauseMenu> {
             padding: EdgeInsets.fromLTRB(4, 0, 4, 4),
             child: Text('HD graphics not installed', style: _small),
           ),
-        _Row(
-          label: 'Sound',
-          value: s.sound ? 'On' : 'Off',
-          onTap: () => setState(() => game.setSound(!s.sound)),
+        Row(
+          children: [
+            Expanded(
+              child: _Row(
+                label: 'Sound',
+                value: s.sound ? 'On' : 'Off',
+                onTap: () => setState(() => game.setSound(!s.sound)),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: _Row(
+                label: 'Music',
+                value: !game.audio.hasMusic && game.audio.isReady
+                    ? '—'
+                    : s.music
+                    ? 'On'
+                    : 'Off',
+                enabled: game.audio.hasMusic || !game.audio.isReady,
+                onTap: () => setState(() => game.setMusic(!s.music)),
+              ),
+            ),
+          ],
         ),
         if (_hasHaptics)
           _Row(

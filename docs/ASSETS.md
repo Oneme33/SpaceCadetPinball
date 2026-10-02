@@ -48,4 +48,4 @@ substitute sounds are ever used. A missing sound is silent and logged.
 | Component sprites, z-maps | parsed; drawn from Phase 3/4 on |
 | Sound effects | available in `original/` (60 WAV) |
 | Message display font | available in `original/FONT.DAT`, decoder in Phase 5 |
-| Music | available (`.MID`); MIDI playback is not supported by the audio engine — TODO: decide in Phase 5 |
+| Music | `PINBALL.MID`, recorded to `assets/original/music.mp3` by `tool/music/render.sh` (TinySoundFont + GeneralUser GS); `PINBALL2.MID` is a bitmap font |

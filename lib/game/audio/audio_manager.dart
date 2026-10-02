@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_soloud/flutter_soloud.dart';
 
 /// Plays the original sound effects, by sound record (the DAT's sound
-/// groups, see `PinballData.soundFiles`).
+/// groups, see `PinballData.soundFiles`), and the music.
 ///
 /// - Sounds are loaded once into memory, so playing one is immediate.
 /// - Many sounds can play at once, but like the original (`Sound.cpp`) the
@@ -36,7 +36,28 @@ class AudioManager {
   Future<void>? _starting;
   bool _ready = false;
 
+  /// Sound effects on.
   bool enabled = true;
+
+  /// The recording of PINBALL.MID (tool/music/render.sh), if installed.
+  static const musicFiles = ['music.mp3', 'music.wav'];
+
+  /// Music below the effects, as the original's MIDI sits under them.
+  static const musicVolume = 0.55;
+
+  Object? _music;
+  Object? _musicHandle;
+  bool _musicWanted = false;
+  bool _musicEnabled = true;
+
+  bool get hasMusic => _music != null;
+
+  /// Music on. Off stops it; on resumes it if a game wants it.
+  bool get musicEnabled => _musicEnabled;
+  set musicEnabled(bool on) {
+    _musicEnabled = on;
+    _updateMusic();
+  }
 
   bool get isReady => _ready;
 
@@ -62,7 +83,47 @@ class AudioManager {
         // Missing or unreadable: reported when first played.
       }
     }
+    for (final file in musicFiles) {
+      try {
+        final data = await _bundle.load('$assetDir/$file');
+        _music = await _backend.load(
+          file,
+          data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+        );
+        break;
+      } on Object {
+        // Not rendered: no music.
+      }
+    }
     _ready = true;
+    _updateMusic();
+  }
+
+  /// `midi::music_play`: from a new game on, the music loops (through game
+  /// over too) while music is on.
+  void playMusic() {
+    _musicWanted = true;
+    _updateMusic();
+  }
+
+  /// `midi::music_stop` on pause and when the app goes to the background.
+  /// Unlike the original's MIDI, the recording continues where it was.
+  void pauseMusic() {
+    _musicWanted = false;
+    _updateMusic();
+  }
+
+  void _updateMusic() {
+    if (!_ready) return;
+    final music = _music;
+    if (music == null) return;
+    final on = _musicWanted && _musicEnabled;
+    final handle = _musicHandle;
+    if (handle != null && _backend.isPlaying(handle)) {
+      _backend.setPaused(handle, !on);
+    } else if (on) {
+      _musicHandle = _backend.playLooping(music, volume: musicVolume);
+    }
   }
 
   /// Plays sound record [group]; null or unknown records are ignored.
@@ -78,9 +139,10 @@ class AudioManager {
     _backend.play(source);
   }
 
-  /// Stops everything, e.g. on pause.
+  /// Stops the sound effects, e.g. on pause; the music has its own
+  /// controls.
   void stopAll() {
-    if (_ready) _backend.stopAll();
+    if (_ready) _backend.stopEffects();
   }
 }
 
@@ -89,7 +151,13 @@ abstract interface class AudioBackend {
   Future<void> init({required int voices});
   Future<Object> load(String name, Uint8List bytes);
   void play(Object source);
-  void stopAll();
+
+  /// Starts [source] looping and returns its handle. It must not be cut
+  /// off when the effects use up the voices.
+  Object playLooping(Object source, {required double volume});
+  bool isPlaying(Object handle);
+  void setPaused(Object handle, bool paused);
+  void stopEffects();
 }
 
 class SoLoudBackend implements AudioBackend {
@@ -104,9 +172,40 @@ class SoLoudBackend implements AudioBackend {
   @override
   Future<Object> load(String name, Uint8List bytes) => _s.loadMem(name, bytes);
 
-  @override
-  void play(Object source) => _s.play(source as AudioSource);
+  final List<SoundHandle> _effects = [];
 
   @override
-  void stopAll() => _s.stopAll();
+  void play(Object source) {
+    _effects
+      ..removeWhere((h) => !_s.getIsValidVoiceHandle(h))
+      ..add(_s.play(source as AudioSource));
+  }
+
+  @override
+  Object playLooping(Object source, {required double volume}) {
+    final handle = _s.play(
+      source as AudioSource,
+      volume: volume,
+      looping: true,
+    );
+    _s.setProtectVoice(handle, true);
+    // SoundHandle is an extension type; box it for the interface.
+    return handle as Object;
+  }
+
+  @override
+  bool isPlaying(Object handle) =>
+      _s.getIsValidVoiceHandle(handle as SoundHandle);
+
+  @override
+  void setPaused(Object handle, bool paused) =>
+      _s.setPause(handle as SoundHandle, paused);
+
+  @override
+  void stopEffects() {
+    for (final h in _effects) {
+      if (_s.getIsValidVoiceHandle(h)) _s.stop(h);
+    }
+    _effects.clear();
+  }
 }

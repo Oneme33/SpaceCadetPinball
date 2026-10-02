@@ -50,12 +50,31 @@ Real-ESRGAN comes from https://github.com/xinntao/Real-ESRGAN (release
 v0.2.5.0, `realesrgan-ncnn-vulkan` for your platform). The result lands in
 `assets/original/hd/` and, like the originals, stays out of git.
 
+## Music
+
+The original plays `PINBALL.MID` through the Windows MIDI synthesizer;
+the app has none, so the installed MIDI is recorded once:
+
+```bash
+tool/music/render.sh
+```
+
+TinySoundFont (MIT) plays it with the GeneralUser GS SoundFont (free to
+use), both downloaded into `tool/music/.cache/`; `lame` makes
+`assets/original/music.mp3` of it (a WAV without lame). Like the
+originals it stays out of git. As in the original the music starts with a
+game, loops (through game over), and stops on pause or when the app loses
+focus; it then continues where it was instead of starting over. Sound
+effects and music switch on and off apart in the menu. (`PINBALL2.MID` is
+no music: it is a bitmap font in MIDI clothing.)
+
 ## Pause menu and settings
 
 Esc, P or a tap on the scoreboard opens it: resume, new game, a "How to
 Play" guide (written from the ported rules), the high scores (normal and
 easy), mode (Normal/Easy), graphics
-(Classic/HD), sound on/off and, on phones, haptics on/off. It is styled
+(Classic/HD), sound and music on/off (side by side) and, on phones,
+haptics on/off. It is styled
 after the scoreboard. Settings and the high score tables are kept between
 sessions.
 
@@ -251,8 +270,8 @@ nnn − 101), extracted by the install tool.
   bumpers, slingshots and bumps, strong for flipper hits, launches and
   special awards; rate-limited, never continuous.
 
-Not yet: more than one player, music (MIDI), the attract-mode demo, and
-bumping the table on touch screens.
+Not yet: more than one player, the attract-mode demo, and bumping the
+table on touch screens.
 
 ### Phase 8: measured against the original
 

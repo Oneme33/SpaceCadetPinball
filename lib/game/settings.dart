@@ -36,6 +36,7 @@ class Settings {
 
   late bool _hd = _get('graphics_hd', false);
   late bool _sound = _get('sound', true);
+  late bool _music = _get('music', true);
   late bool _haptics = _get('haptics', true);
   late bool _easy = _get('easy_mode', false);
 
@@ -45,6 +46,10 @@ class Settings {
 
   bool get sound => _sound;
   set sound(bool v) => _set('sound', _sound = v);
+
+  /// The music (the recording of PINBALL.MID), apart from the effects.
+  bool get music => _music;
+  set music(bool v) => _set('music', _music = v);
 
   bool get haptics => _haptics;
   set haptics(bool v) => _set('haptics', _haptics = v);

@@ -155,6 +155,15 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
     if (!on) audio.stopAll();
   }
 
+  void setMusic(bool on) {
+    settings.music = on;
+    audio.musicEnabled = on;
+  }
+
+  /// Set by the first game: the original starts the music with a game
+  /// (`pb::replay_level`) and keeps it looping from then on.
+  bool _musicStarted = false;
+
   /// Longer flippers in easy mode, relative to the original.
   static const easyFlipperLength = 1.25;
 
@@ -315,7 +324,9 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
       camera.viewport.add(DebugHud(game: this, layer: layer));
     }
 
-    audio.enabled = settings.sound;
+    audio
+      ..enabled = settings.sound
+      ..musicEnabled = settings.music;
     if (originals != null) {
       try {
         await rootBundle.load(
@@ -443,6 +454,8 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
       ..timers.clear();
     _scoreShown = true;
     _easyGame = settings.easy;
+    _musicStarted = true;
+    audio.playMusic();
     rules.t.message(MC.newGame, 1);
   }
 
@@ -656,6 +669,13 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
       table.releaseControls();
       audio.stopAll();
     }
+    // `pb::pause_continue`: the music stops with a pause and comes back
+    // after it; it plays on through game over.
+    if (to == GamePhase.paused) {
+      audio.pauseMusic();
+    } else if (from == GamePhase.paused && _musicStarted) {
+      audio.playMusic();
+    }
     _overlay(pauseOverlay, to == GamePhase.paused);
     _overlay(attractOverlay, to == GamePhase.attract);
     _overlay(gameOverOverlay, to == GamePhase.gameOver);
@@ -668,10 +688,16 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
   @override
   void lifecycleStateChange(AppLifecycleState state) {
     super.lifecycleStateChange(state);
-    // Pause when the app or tab loses focus, as the original does.
+    // Pause when the app or tab loses focus, as the original does; the
+    // music stops then too, also outside a game.
     if (state != AppLifecycleState.resumed &&
         gameState.phase == GamePhase.playing) {
       gameState.handle(GameEvent.pause);
+    }
+    if (state != AppLifecycleState.resumed) {
+      audio.pauseMusic();
+    } else if (_musicStarted && gameState.phase != GamePhase.paused) {
+      audio.playMusic();
     }
   }
 

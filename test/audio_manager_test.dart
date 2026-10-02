@@ -17,7 +17,24 @@ class _FakeBackend implements AudioBackend {
   void play(Object source) => played.add(source as String);
 
   @override
-  void stopAll() => stopped++;
+  void stopEffects() => stopped++;
+
+  /// Looping sources by handle, and whether each is paused.
+  final looping = <int, (String, bool)>{};
+
+  @override
+  Object playLooping(Object source, {required double volume}) {
+    final handle = looping.length;
+    looping[handle] = (source as String, false);
+    return handle;
+  }
+
+  @override
+  bool isPlaying(Object handle) => looping.containsKey(handle);
+
+  @override
+  void setPaused(Object handle, bool paused) =>
+      looping[handle as int] = (looping[handle]!.$1, paused);
 }
 
 class _Bundle extends CachingAssetBundle {
@@ -80,5 +97,65 @@ void main() {
   test('start is idempotent', () async {
     await Future.wait([audio.start(), audio.start()]);
     expect(audio.isReady, isTrue);
+  });
+
+  group('music', () {
+    late _FakeBackend backend;
+    late AudioManager audio;
+
+    setUp(() {
+      backend = _FakeBackend();
+      audio = AudioManager(
+        soundFiles: const {10: 'SOUND1.WAV'},
+        backend: backend,
+        bundle: _Bundle({
+          'assets/original/SOUND1.WAV',
+          'assets/original/music.mp3',
+        }),
+      );
+    });
+
+    test('starts with a game, looping, and pauses with it', () async {
+      await audio.start();
+      expect(audio.hasMusic, isTrue);
+      expect(backend.looping, isEmpty, reason: 'not before a game');
+      audio.playMusic();
+      expect(backend.looping, {0: ('music.mp3', false)});
+      audio.pauseMusic();
+      expect(backend.looping[0]!.$2, isTrue);
+      audio.playMusic();
+      expect(backend.looping, {0: ('music.mp3', false)}, reason: 'resumed');
+    });
+
+    test('is switched apart from the effects', () async {
+      await audio.start();
+      audio
+        ..playMusic()
+        ..enabled = false
+        ..stopAll();
+      expect(backend.looping[0]!.$2, isFalse, reason: 'effects only');
+      audio.musicEnabled = false;
+      expect(backend.looping[0]!.$2, isTrue);
+      audio.musicEnabled = true;
+      expect(backend.looping[0]!.$2, isFalse);
+    });
+
+    test('a game started before the engine gets its music', () async {
+      audio.playMusic();
+      await audio.start();
+      expect(backend.looping, {0: ('music.mp3', false)});
+    });
+
+    test('no recording, no music', () async {
+      final quiet = AudioManager(
+        soundFiles: const {},
+        backend: backend,
+        bundle: _Bundle({}),
+      );
+      await quiet.start();
+      quiet.playMusic();
+      expect(quiet.hasMusic, isFalse);
+      expect(backend.looping, isEmpty);
+    });
   });
 }
