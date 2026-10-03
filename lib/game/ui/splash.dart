@@ -119,6 +119,10 @@ class _Title extends StatelessWidget {
   /// The outline is a ring of hard shadows, not a stroke: phone fonts
   /// are built from overlapping shapes, and a stroke draws their seams as
   /// lines through the letters.
+  ///
+  /// Both layers get room around the text: italic letters reach outside
+  /// their box (the tail of the "p", the end of the "t"), and the gradient
+  /// only covers the box, so those parts would stay white.
   Widget _outlined(String text, double size, {double spacing = 0}) {
     final style = TextStyle(
       fontSize: size,
@@ -128,24 +132,33 @@ class _Title extends StatelessWidget {
       height: 1,
     );
     final w = math.max(1.0, size / 22);
+    final room = EdgeInsets.fromLTRB(
+      size * 0.1,
+      size * 0.1,
+      size * 0.25,
+      size * 0.3,
+    );
     return Stack(
       children: [
-        Text(
-          text,
-          maxLines: 1,
-          softWrap: false,
-          style: style.copyWith(
-            color: _outline,
-            shadows: [
-              for (var i = 0; i < 16; i++)
-                Shadow(
-                  color: _outline,
-                  offset: Offset(
-                    math.cos(i * math.pi / 8) * w,
-                    math.sin(i * math.pi / 8) * w,
+        Padding(
+          padding: room,
+          child: Text(
+            text,
+            maxLines: 1,
+            softWrap: false,
+            style: style.copyWith(
+              color: _outline,
+              shadows: [
+                for (var i = 0; i < 16; i++)
+                  Shadow(
+                    color: _outline,
+                    offset: Offset(
+                      math.cos(i * math.pi / 8) * w,
+                      math.sin(i * math.pi / 8) * w,
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
         ShaderMask(
@@ -154,11 +167,14 @@ class _Title extends StatelessWidget {
             end: Alignment.bottomCenter,
             colors: [Color(0xFFE6DCFF), _lavender, _violet],
           ).createShader(r),
-          child: Text(
-            text,
-            maxLines: 1,
-            softWrap: false,
-            style: style.copyWith(color: Colors.white),
+          child: Padding(
+            padding: room,
+            child: Text(
+              text,
+              maxLines: 1,
+              softWrap: false,
+              style: style.copyWith(color: Colors.white),
+            ),
           ),
         ),
       ],
@@ -176,7 +192,6 @@ class _Title extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           _outlined('3D Pinball', big * 0.45, spacing: 1),
-          SizedBox(height: big * 0.12),
           _outlined('Space Cadet', big),
         ],
       ),

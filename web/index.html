@@ -51,8 +51,10 @@
       background: linear-gradient(#e6dcff, #b8a4f0, #7a5cd6);
       -webkit-background-clip: text; background-clip: text;
       -webkit-text-fill-color: transparent;
+      /* Room for the italic overhang: the gradient only fills the box. */
+      padding: 0.1em 0.25em 0.3em 0.1em;
     }
-    #boot .t .s { font-size: min(29px, 7vw); letter-spacing: 1px; margin-bottom: 8px; }
+    #boot .t .s { font-size: min(29px, 7vw); letter-spacing: 1px; margin-bottom: -7px; }
     #boot .t .b { font-size: min(64px, 16vw); }
     #boot .bar {
       width: 280px; height: 12px; padding: 3px; background: #000;

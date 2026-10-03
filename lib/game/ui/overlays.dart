@@ -463,6 +463,7 @@ class _PauseMenuState extends State<_PauseMenu> {
                   children: [
                     for (final (title, text) in _guideSections)
                       ..._section(title, text),
+                    ..._pointsSection(),
                   ],
                 ),
               ),
@@ -545,7 +546,65 @@ class _PauseMenuState extends State<_PauseMenu> {
     Text(text, style: _label.copyWith(fontSize: 13)),
     const SizedBox(height: 12),
   ];
+
+  /// The point values as a two-column list: what you hit, what it pays.
+  List<Widget> _pointsSection() => [
+    ..._section(
+      'Points at a glance',
+      'From the original\'s scoring tables; everything counts times the '
+          'field multiplier. The smallest award is 500.',
+    ).take(3),
+    const SizedBox(height: 6),
+    for (final (what, points) in _pointValues)
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 5,
+              child: Text(what, style: _label.copyWith(fontSize: 13)),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 4,
+              child: Text(
+                points,
+                textAlign: TextAlign.right,
+                style: _label.copyWith(fontSize: 13, color: _blue),
+              ),
+            ),
+          ],
+        ),
+      ),
+    const SizedBox(height: 12),
+  ];
 }
+
+/// What each part of the table pays, from the original's scoring tables.
+const _pointValues = [
+  ('Bumpers', '500 – 2,000'),
+  ('Upper bumpers', '1,500 – 4,500'),
+  ('Slingshots, launch lanes', '500'),
+  ('Re-entry lanes', '2,000'),
+  ('Return lanes', '5,000 / 25,000'),
+  ('Bonus lane, space warp', '10,000'),
+  ('Outlanes', '20,000'),
+  ('Fuel, hazard, wormhole spots', '750'),
+  ('Mission targets', '1,000'),
+  ('Booster targets', '500 / 5,000'),
+  ('Multiplier targets', '500 / 1,500'),
+  ('Medal targets', '1,500 – 50,000'),
+  ('Flags', '500 / 2,500'),
+  ('Launch ramp', '5,000'),
+  ('Wormholes', '2,500 – 7,500'),
+  ('Deployment chute', '7,500 – 75,000'),
+  ('Black hole', '20,000'),
+  ('Gravity well', '50,000'),
+  ('Hyperspace', '10,000 – 150,000'),
+  ('Skill shot', 'up to 75,000'),
+  ('Missions', 'tens of thousands to millions'),
+];
 
 /// The guide, written from the rules as ported from the original.
 const _guideSections = [
@@ -608,24 +667,6 @@ const _guideSections = [
         'that stays up between them and kickbacks that never close: the '
         'ball can only drain through an outlane, and rarely does. Easy '
         'games keep their own high scores.',
-  ),
-  (
-    'Points at a glance',
-    'From the original\'s scoring tables; everything counts times the '
-        'field multiplier. The smallest award is 500, so a score never '
-        'ends below the hundreds.\n'
-        'Bumpers: 500 to 2,000 by their level; the upper bumpers 1,500 '
-        'to 4,500.\n'
-        'Slingshots and launch lanes: 500. Re-entry lanes: 2,000. Return '
-        'lanes: 5,000 or 25,000. Bonus lane and space warp: 10,000. '
-        'Outlanes: 20,000.\n'
-        'Targets: fuel, hazard and wormhole spots 750; mission targets '
-        '1,000; booster targets 500 or 5,000; multiplier targets 500 or '
-        '1,500; medal targets 1,500, 10,000 or 50,000.\n'
-        'Flags: 500 or 2,500. Launch ramp: 5,000. Wormholes: 2,500, 5,000 '
-        'or 7,500. Deployment chute: 7,500 to 75,000.\n'
-        'Kickouts: black hole 20,000, gravity well 50,000, hyperspace '
-        '10,000 to 150,000. Missions pay tens of thousands up to millions.',
   ),
 ];
 

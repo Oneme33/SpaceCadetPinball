@@ -19,7 +19,7 @@ import '../../dat/dat_bitmap.dart';
 /// the glass instead: a faint tint and the dome's rim, as an ellipse traced
 /// on the art.
 class CadetCar {
-  CadetCar._(this.width, this.height, this._mask, this.rimColor);
+  CadetCar._(this.width, this.height, this._mask, this.rimColor, this._caps);
 
   /// The car's area in classic scoreboard pixels.
   static const left = 55, top = 40, right = 193, bottom = 135;
@@ -40,6 +40,10 @@ class CadetCar {
   final int width, height;
   final List<bool> _mask;
 
+  /// The rounded ends at the back: (first row, end row, depth) in crop
+  /// pixels; see [_rearCaps].
+  final List<(double, double, double)> _caps;
+
   /// The rim's grey, sampled from the art (0xRRGGBBAA).
   final int rimColor;
 
@@ -56,6 +60,7 @@ class CadetCar {
   /// Whether classic scoreboard pixel (x, y) belongs to the car.
   bool contains(int x, int y) {
     if (x < left || y < top || x >= right || y >= bottom) return false;
+    if (_capDistance(x - left + 0.5, y - top + 0.5) <= 0) return false;
     return _mask[(y - top) * width + x - left];
   }
 
@@ -91,15 +96,26 @@ class CadetCar {
         }
       }
     }
-    _roundRear(mask, w, h);
-    return CadetCar._(w, h, mask, _sampleRim(board, colors));
+    return CadetCar._(
+      w,
+      h,
+      mask,
+      _sampleRim(board, colors),
+      _rearCaps(mask, w, h),
+    );
   }
 
   /// The back of the car runs behind the scoreboard frame, so the cut-out
   /// ends in a straight vertical edge there. Every stretch of rows that
   /// reaches the frame gets a rounded end instead: a half ellipse as deep
-  /// as [rearRounding] of its height.
-  static void _roundRear(List<bool> mask, int w, int h) {
+  /// as [rearRounding] of its height, computed exactly per drawn pixel
+  /// (not on the classic pixel grid, which would show as steps in HD).
+  static List<(double, double, double)> _rearCaps(
+    List<bool> mask,
+    int w,
+    int h,
+  ) {
+    final caps = <(double, double, double)>[];
     var y = 0;
     while (y < h) {
       if (!mask[y * w + w - 1]) {
@@ -113,15 +129,48 @@ class CadetCar {
       final rows = y - start;
       if (rows < 4) continue;
       final depth = rows * rearRounding;
-      for (var r = start; r < y; r++) {
-        final t = ((r + 0.5) - (start + rows / 2)) / (rows / 2);
-        final cut = depth * (1 - math.sqrt(math.max(0, 1 - t * t)));
-        for (var x = (w - cut).floor(); x < w; x++) {
-          if (x >= 0) mask[r * w + x] = false;
+      // The curve also spans the few neighbouring rows that reach into
+      // it, so those do not stick out past it as steps.
+      int reach(int row) {
+        for (var x = w - 1; x >= 0; x--) {
+          if (mask[row * w + x]) return x + 1;
         }
+        return 0;
       }
+
+      var first = start, end = y;
+      while (first > math.max(0, start - _capReach) &&
+          reach(first - 1) > w - depth) {
+        first--;
+      }
+      while (end < math.min(h, y + _capReach) && reach(end) > w - depth) {
+        end++;
+      }
+      caps.add((first.toDouble(), end.toDouble(), depth));
     }
+    return caps;
   }
+
+  /// Distance in classic pixels from (x, y) (crop coordinates) to the
+  /// rounded rear, positive inside; infinite away from the caps.
+  double _capDistance(double x, double y) {
+    for (final (start, end, depth) in _caps) {
+      // A row past either end still blurs into the curve's first and last
+      // drawn pixels (smooth scaling): those end at the curve as well.
+      if (y < start - 1 || y > end + 1) continue;
+      final half = (end - start) / 2;
+      final t = ((y - (start + half)) / half).clamp(-1.0, 1.0);
+      final limit = width - depth * (1 - math.sqrt(1 - t * t));
+      return limit - x;
+    }
+    return double.infinity;
+  }
+
+  /// How many neighbouring rows a curve may take in; more would flatten it.
+  static const _capReach = 3;
+
+  /// The dark edge drawn along the rounded rear, like the car's outline.
+  static const _rearEdge = (56.0, 56.0, 66.0);
 
   /// How deep the rounded rear is, as a share of its height.
   static const rearRounding = 0.45;
@@ -236,13 +285,22 @@ class CadetCar {
             );
           }
         }
-        final c = coverage(fx, fy);
+        var c = coverage(fx, fy);
+        // The rounded rear: an exact curve with a smooth edge and a thin
+        // dark outline along it.
+        final rear = _capDistance(fx, fy);
+        var edge = 0.0;
+        if (rear.isFinite) {
+          c *= (rear * scale + 0.5).clamp(0.0, 1.0);
+          edge = ((1 - rear / 0.9) * 0.85).clamp(0.0, 0.85);
+        }
         if (c > 0) {
           final s = ((top * scale + y) * image.width + left * scale + x) * 4;
+          double mix(int v, double e) => v * (1 - edge) + e * edge;
           over(
-            src[s].toDouble(),
-            src[s + 1].toDouble(),
-            src[s + 2].toDouble(),
+            mix(src[s], _rearEdge.$1),
+            mix(src[s + 1], _rearEdge.$2),
+            mix(src[s + 2], _rearEdge.$3),
             c * src[s + 3] / 255,
           );
         }
