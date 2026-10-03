@@ -136,11 +136,12 @@ void main() {
         step(0.01);
       }
       var ball = table.balls.first;
-      if (s.ball case [final x, final y, final vx, final vy]) {
+      if (s.ball case [final x, final y, final vx, final vy, ...final rest]) {
         // A fresh ball, as the harness places one.
         table.removeAllBalls();
         ball = table.addBall(x, y);
         ball.body.linearVelocity = Vector2(vx, vy);
+        if (rest.isNotEmpty && rest.first > 0) ball.layers = rest.first.toInt();
       }
       var next = 0;
       final frames = (s.duration * 100).round();

@@ -7,9 +7,9 @@
 //
 //   dart run tool/make_hd.dart --esrgan path/to/realesrgan-ncnn-vulkan [--python python3]
 //
-// Sprites of at most 16 pixels (the lamps) are scaled with xBRZ instead
-// (tool/hd_small_sprites.py): ESRGAN turns a lamp of a few pixels into a
-// rectangle, xBRZ keeps it round.
+// Sprites of at most 16 pixels (the lamps) are done by
+// tool/hd_small_sprites.py instead: ESRGAN turns a lamp of a few pixels into a
+// rectangle; round lamps are redrawn round, the rest goes through xBRZ.
 //
 // Real-ESRGAN: https://github.com/xinntao/Real-ESRGAN (release v0.2.5.0,
 // realesrgan-ncnn-vulkan for your platform). The models folder must sit

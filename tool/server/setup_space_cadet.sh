@@ -20,6 +20,8 @@ chmod -R u=rwX,g=rX,o=rX "/var/www/$SITE"
 chown "$OWNER":www-data "$ROOT/index.html"
 
 install -m 644 "$HERE/$SITE.conf" "/etc/apache2/sites-available/$SITE.conf"
+install -m 644 "$HERE/space-cadet-cache.conf" /etc/apache2/conf-available/space-cadet-cache.conf
+a2enconf -q space-cadet-cache
 a2enmod headers deflate >/dev/null
 a2ensite "$SITE" >/dev/null
 apache2ctl configtest

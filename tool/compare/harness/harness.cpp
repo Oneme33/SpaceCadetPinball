@@ -4,7 +4,7 @@
 //
 // Scenario file:
 //   scenario <name> <seconds>
-//   ball <x> <y> <vx> <vy>      (optional: otherwise the ball stays on the plunger)
+//   ball <x> <y> <vx> <vy> [layers]  (optional: otherwise the ball stays on the plunger)
 //   at <t> <action>             leftDown leftUp rightDown rightUp plungerDown plungerUp
 //   end
 #include "pch.h"
@@ -26,6 +26,7 @@ struct Scenario
 	float duration = 3;
 	bool placeBall = false;
 	float x = 0, y = 0, vx = 0, vy = 0;
+	int mask = 0; // collision layers; 0 keeps the playfield
 	std::vector<Event> events;
 };
 
@@ -42,7 +43,7 @@ static std::vector<Scenario> readScenarios(const char* path)
 		if (sscanf(line, "%63s", word) != 1 || word[0] == '#') continue;
 		std::string w = word;
 		if (w == "scenario") { cur = Scenario{}; sscanf(line, "%*s %127s %f", arg, &cur.duration); cur.name = arg; }
-		else if (w == "ball") { cur.placeBall = true; sscanf(line, "%*s %f %f %f %f", &cur.x, &cur.y, &cur.vx, &cur.vy); }
+		else if (w == "ball") { cur.placeBall = true; sscanf(line, "%*s %f %f %f %f %d", &cur.x, &cur.y, &cur.vx, &cur.vy, &cur.mask); }
 		else if (w == "at") { Event e; sscanf(line, "%*s %f %127s", &e.t, arg); e.action = arg; cur.events.push_back(e); }
 		else if (w == "end") list.push_back(cur);
 	}
@@ -123,7 +124,7 @@ int main(int argc, char* argv[])
 		if (s.placeBall)
 		{
 			ball->CollisionComp = nullptr;
-			ball->CollisionMask = 1;
+			ball->CollisionMask = s.mask ? s.mask : 1;
 			ball->EdgeCollisionCount = 0;
 			ball->Position = {s.x, s.y, ball->Radius};
 			ball->PrevPosition = ball->Position;
