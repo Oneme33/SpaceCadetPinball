@@ -13,7 +13,7 @@ cd "$ROOT"
 OUT=build/site
 rm -rf "$OUT"
 mkdir -p "$OUT/download"
-flutter build web --release --base-href /play/
+flutter build web --release --no-web-resources-cdn --base-href /play/
 cp -R build/web "$OUT/play"
 cp site/*.html site/*.css site/*.js site/*.txt site/*.xml site/*.png "$OUT/"
 cp web/icons/Icon-512.png "$OUT/icon.png"

@@ -30,50 +30,62 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
+  <link rel="preload" href="assets/fonts/fallback/Roboto-Regular.ttf" as="font" type="font/ttf" crossorigin>
   <title>Play Space Cadet Pinball</title>
   <link rel="manifest" href="manifest.json">
   <style>
-    /* Until Flutter draws its own splash screen: the same title on black,
-       so the page never flashes white. Removed on Flutter's first frame. */
+    /* Until Flutter draws its own splash screen (lib/game/ui/splash.dart):
+       the same screen in HTML, so the page never flashes white. Same font
+       file (Flutter's own Roboto, made bold and italic the same way), sizes,
+       spacing and bar, so the switch on Flutter's first frame is not seen. */
+    @font-face {
+      font-family: 'Splash Roboto';
+      src: url('assets/fonts/fallback/Roboto-Regular.ttf') format('truetype');
+      font-display: block;
+    }
     html, body { margin: 0; height: 100%; background: #000; }
     #boot {
       position: fixed; inset: 0; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 36px;
-      font-family: system-ui, sans-serif; font-style: italic; font-weight: 900;
+      align-items: center; justify-content: center; gap: 26px;
+      font-family: 'Splash Roboto', sans-serif;
     }
-    #boot .t { text-align: center; line-height: 1; }
+    #boot .t { line-height: 1; font-style: italic; font-weight: 900; }
     #boot .t span {
-      display: block; color: #b8a4f0;
-      /* An outline that follows only the outer edge (a text stroke draws
-         the seams of overlapping glyph shapes on phones). */
-      filter: drop-shadow(1px 0 0 #2a1b5c) drop-shadow(-1px 0 0 #2a1b5c)
-              drop-shadow(0 1px 0 #2a1b5c) drop-shadow(0 -1px 0 #2a1b5c);
+      /* Shrink-wrapped like Flutter's Column children, with the same room
+         for the italic overhang (the gradient only fills the box). */
+      display: table; margin: 0 auto;
+      padding: 0.1em 0.25em 0.3em 0.1em;
+      color: #b8a4f0;
+      /* An outline around the outer edge only, as thick as Flutter's
+         (size / 22). A text stroke would draw the seams of glyph shapes. */
+      filter: drop-shadow(0.045em 0 0 #2a1b5c) drop-shadow(-0.045em 0 0 #2a1b5c)
+              drop-shadow(0 0.045em 0 #2a1b5c) drop-shadow(0 -0.045em 0 #2a1b5c);
       background: linear-gradient(#e6dcff, #b8a4f0, #7a5cd6);
       -webkit-background-clip: text; background-clip: text;
       -webkit-text-fill-color: transparent;
-      /* Room for the italic overhang: the gradient only fills the box. */
-      padding: 0.1em 0.25em 0.3em 0.1em;
     }
-    #boot .t .s { font-size: min(29px, 7vw); letter-spacing: 1px; margin-bottom: -7px; }
-    #boot .t .b { font-size: min(64px, 16vw); }
+    #boot .t .b { font-size: min(84px, 100vw / 6.2); }
+    #boot .t .s { font-size: min(37.8px, 100vw / 6.2 * 0.45); letter-spacing: 1px; }
+    #boot .p { width: 280px; text-align: center; }
     #boot .bar {
-      width: 280px; height: 12px; padding: 3px; background: #000;
-      border: 3px solid; border-color: #dcdcdc #4c4c4c #4c4c4c #dcdcdc;
-      outline: 3px solid #9c9c9c; overflow: hidden;
+      box-sizing: border-box; height: 22px; padding: 3px; background: #9c9c9c;
+      border: 2px solid; border-color: #dcdcdc #4c4c4c #4c4c4c #dcdcdc;
     }
+    #boot .bar b { display: block; box-sizing: border-box; height: 100%; padding: 2px; background: #000; }
     #boot .bar i {
-      display: block; width: 30%; height: 100%;
+      display: block; height: 100%; width: 2%;
       background: linear-gradient(#8fa2ff, #4e6cff, #2b3fb0);
-      animation: boot 1.4s ease-in-out infinite alternate;
+      animation: boot 8s cubic-bezier(.1, .7, .3, 1) forwards;
     }
-    @keyframes boot { from { margin-left: 0 } to { margin-left: 70% } }
+    #boot .p div { margin-top: 10px; color: #9a9ab8; font-size: 13px; letter-spacing: 0.5px; }
+    @keyframes boot { to { width: 10%; } }  /* where Flutter's bar picks up */
     @media (prefers-reduced-motion: reduce) { #boot .bar i { animation: none; } }
   </style>
 </head>
 <body>
   <div id="boot" aria-label="Loading">
     <div class="t"><span class="s">3D Pinball</span><span class="b">Space Cadet</span></div>
-    <div class="bar"><i></i></div>
+    <div class="p"><div class="bar"><b><i></i></b></div><div>Starting</div></div>
   </div>
   <script>
     window.addEventListener('flutter-first-frame', function () {
