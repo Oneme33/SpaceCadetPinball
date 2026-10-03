@@ -609,6 +609,24 @@ const _guideSections = [
         'ball can only drain through an outlane, and rarely does. Easy '
         'games keep their own high scores.',
   ),
+  (
+    'Points at a glance',
+    'From the original\'s scoring tables; everything counts times the '
+        'field multiplier. The smallest award is 500, so a score never '
+        'ends below the hundreds.\n'
+        'Bumpers: 500 to 2,000 by their level; the upper bumpers 1,500 '
+        'to 4,500.\n'
+        'Slingshots and launch lanes: 500. Re-entry lanes: 2,000. Return '
+        'lanes: 5,000 or 25,000. Bonus lane and space warp: 10,000. '
+        'Outlanes: 20,000.\n'
+        'Targets: fuel, hazard and wormhole spots 750; mission targets '
+        '1,000; booster targets 500 or 5,000; multiplier targets 500 or '
+        '1,500; medal targets 1,500, 10,000 or 50,000.\n'
+        'Flags: 500 or 2,500. Launch ramp: 5,000. Wormholes: 2,500, 5,000 '
+        'or 7,500. Deployment chute: 7,500 to 75,000.\n'
+        'Kickouts: black hole 20,000, gravity well 50,000, hyperspace '
+        '10,000 to 150,000. Missions pay tens of thousands up to millions.',
+  ),
 ];
 
 /// The scoreboard's grey metal frame: raised bevel around a dark body.
