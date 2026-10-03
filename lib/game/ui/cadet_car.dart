@@ -91,8 +91,40 @@ class CadetCar {
         }
       }
     }
+    _roundRear(mask, w, h);
     return CadetCar._(w, h, mask, _sampleRim(board, colors));
   }
+
+  /// The back of the car runs behind the scoreboard frame, so the cut-out
+  /// ends in a straight vertical edge there. Every stretch of rows that
+  /// reaches the frame gets a rounded end instead: a half ellipse as deep
+  /// as [rearRounding] of its height.
+  static void _roundRear(List<bool> mask, int w, int h) {
+    var y = 0;
+    while (y < h) {
+      if (!mask[y * w + w - 1]) {
+        y++;
+        continue;
+      }
+      final start = y;
+      while (y < h && mask[y * w + w - 1]) {
+        y++;
+      }
+      final rows = y - start;
+      if (rows < 4) continue;
+      final depth = rows * rearRounding;
+      for (var r = start; r < y; r++) {
+        final t = ((r + 0.5) - (start + rows / 2)) / (rows / 2);
+        final cut = depth * (1 - math.sqrt(math.max(0, 1 - t * t)));
+        for (var x = (w - cut).floor(); x < w; x++) {
+          if (x >= 0) mask[r * w + x] = false;
+        }
+      }
+    }
+  }
+
+  /// How deep the rounded rear is, as a share of its height.
+  static const rearRounding = 0.45;
 
   /// The average of the grey rim pixels along the dome's edge.
   static int _sampleRim(Bitmap8 board, Uint32List colors) {
