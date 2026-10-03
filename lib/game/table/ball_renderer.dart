@@ -70,6 +70,12 @@ class BallRenderer {
     final p = projection.toScreen3(x, y, z);
     final left = (p.dx - image.width ~/ 2).floor();
     final top = (p.dy - image.height ~/ 2).floor();
+    final zmap = tableDepth;
+    final depth = normalizedDepth(projection.depth(x, y, z));
+    if (zmap != null && graphics.hdFor(sprite.group) != null) {
+      _renderSmooth(canvas, sprite, left, top, zmap, depth);
+      return;
+    }
     graphics.drawBitmap(
       canvas,
       image,
@@ -77,10 +83,8 @@ class BallRenderer {
       Offset(left.toDouble(), top.toDouble()),
     );
 
-    final zmap = tableDepth;
     if (zmap == null) return;
     // Paint the table back over every ball pixel the table is in front of.
-    final depth = normalizedDepth(projection.depth(x, y, z));
     final spans = _spans[index];
     for (var row = 0; row < spans.length; row++) {
       final sy = top + row;
@@ -106,6 +110,76 @@ class BallRenderer {
         }
       }
     }
+  }
+
+  /// HD: the same depth test, but the ball is clipped along a smooth
+  /// outline through the hidden pixels instead of having whole classic
+  /// pixels of table painted over it, which shows as steps on the smooth
+  /// HD ball where it passes behind a rail.
+  void _renderSmooth(
+    Canvas canvas,
+    BallSprite sprite,
+    int left,
+    int top,
+    ZMap zmap,
+    int depth,
+  ) {
+    final w = sprite.image.width, h = sprite.image.height;
+    // Visibility at the pixel centres of the sprite plus a one-pixel ring.
+    final gw = w + 2, gh = h + 2;
+    final visible = List<bool>.filled(gw * gh, true);
+    var hidden = 0;
+    for (var gy = 0; gy < gh; gy++) {
+      final sy = top + gy - 1;
+      if (sy < 0 || sy >= zmap.height) continue;
+      for (var gx = 0; gx < gw; gx++) {
+        final sx = left + gx - 1;
+        if (sx < 0 || sx >= zmap.width) continue;
+        if (zmap.at(sx, sy) <= depth) {
+          visible[gy * gw + gx] = false;
+          hidden++;
+        }
+      }
+    }
+    void draw() => graphics.drawBitmap(
+      canvas,
+      sprite.image,
+      sprite.group,
+      Offset(left.toDouble(), top.toDouble()),
+    );
+    if (hidden == 0) return draw();
+    if (hidden == gw * gh) return;
+
+    // Marching squares between the pixel centres: per cell, its visible
+    // corners and the midpoints of the edges where visibility changes,
+    // in order around the cell.
+    final path = Path();
+    final ox = left - 0.5, oy = top - 0.5;
+    for (var gy = 0; gy < gh - 1; gy++) {
+      for (var gx = 0; gx < gw - 1; gx++) {
+        final tl = visible[gy * gw + gx], tr = visible[gy * gw + gx + 1];
+        final br = visible[(gy + 1) * gw + gx + 1];
+        final bl = visible[(gy + 1) * gw + gx];
+        if (!(tl || tr || br || bl)) continue;
+        final x0 = ox + gx, y0 = oy + gy;
+        final points = <Offset>[
+          if (tl) Offset(x0, y0),
+          if (tl != tr) Offset(x0 + 0.5, y0),
+          if (tr) Offset(x0 + 1, y0),
+          if (tr != br) Offset(x0 + 1, y0 + 0.5),
+          if (br) Offset(x0 + 1, y0 + 1),
+          if (br != bl) Offset(x0 + 0.5, y0 + 1),
+          if (bl) Offset(x0, y0 + 1),
+          if (bl != tl) Offset(x0, y0 + 0.5),
+        ];
+        path.addPolygon(points, true);
+      }
+    }
+    canvas
+      ..save()
+      ..clipPath(path);
+    draw();
+    canvas.restore();
   }
 
   static List<Int32List> _opaqueSpans(Bitmap8 b) => [
