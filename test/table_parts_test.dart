@@ -204,6 +204,36 @@ void main() {
       expect(reported('ramp'), isTrue);
     });
 
+    test('the ramp hole catches balls again after a new game', () {
+      // A ball held in the hole when the table is reset (new game, tilt)
+      // used to leave the hole "occupied" for good: later balls rolled
+      // past it and got stuck at the bottom of the upper level.
+      final hole = part<HolePart>('ramp_hole');
+      final c = hole.component.states.first.walls.first as WallCircle;
+      PinballBall dropIn() {
+        final b = table.addBall(c.x, c.y)..layers = 4;
+        run(0.1);
+        return b;
+      }
+
+      expect(dropIn().isCaptured, isTrue);
+      table
+        ..removeAllBalls()
+        ..reset();
+      run(1);
+      expect(dropIn().isCaptured, isTrue, reason: 'caught after the reset');
+    });
+
+    test('a reset drops the ball held in the ramp hole', () {
+      final hole = part<HolePart>('ramp_hole');
+      final c = hole.component.states.first.walls.first as WallCircle;
+      final b = table.addBall(c.x, c.y)..layers = 4;
+      run(0.1);
+      expect(b.isCaptured, isTrue);
+      table.reset();
+      expect(b.isCaptured, isFalse, reason: 'THole::Message(Reset)');
+    });
+
     test('a ball touching two segments of a part is kicked once', () {
       final kicks = <String, int>{};
       table.onPartEvent = (e) {

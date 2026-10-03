@@ -182,7 +182,7 @@ class KickoutPart extends TablePart {
 
   @override
   void field(PinballBall ball) {
-    if (!active || _held != null || !_onLayer(ball)) return;
+    if (!active || _holding != null || !_onLayer(ball)) return;
     final dx = _circle.x - ball.x, dy = _circle.y - ball.y;
     final d2 = dx * dx + dy * dy;
     if (d2 > _circle.radius * _circle.radius || d2 == 0) return;
@@ -195,7 +195,7 @@ class KickoutPart extends TablePart {
 
   @override
   void checkBall(PinballBall ball) {
-    if (!active || _held != null || !_onLayer(ball)) return;
+    if (!active || _holding != null || !_onLayer(ball)) return;
     final dx = _circle.x - ball.x, dy = _circle.y - ball.y;
     if (dx * dx + dy * dy > captureRadius * captureRadius) return;
     _held = ball;
@@ -238,6 +238,11 @@ class KickoutPart extends TablePart {
     final ball = _held;
     if (ball == null) return;
     _held = null;
+    if (!ctx.balls.contains(ball)) {
+      // Gone meanwhile (a new game, a tilt): nothing to throw.
+      active = lit;
+      return;
+    }
     final v = TablePart.throwVelocity(visual.kicker, ctx.random);
     sound(visual.hardHitSound);
     ball.release(v.x, v.y, z: ctx.ballRadius);
@@ -251,7 +256,13 @@ class KickoutPart extends TablePart {
     active = lit;
   }
 
-  bool get holdsBall => _held != null;
+  bool get holdsBall => _holding != null;
+
+  /// The held ball, forgotten once it is gone (a new game, a tilt drain).
+  PinballBall? get _holding {
+    if (_held case final h? when !ctx.balls.contains(h)) _held = null;
+    return _held;
+  }
 }
 
 /// `TSink`: a wormhole. The ball disappears and comes back out of the sink
@@ -349,7 +360,7 @@ class HolePart extends TablePart {
 
   @override
   void field(PinballBall ball) {
-    if (_held != null || !_onLayer(ball)) return;
+    if (_holding != null || !_onLayer(ball)) return;
     final dx = _circle.x - ball.x, dy = _circle.y - ball.y;
     final d2 = dx * dx + dy * dy;
     if (d2 > _circle.radius * _circle.radius || d2 == 0) return;
@@ -360,9 +371,22 @@ class HolePart extends TablePart {
       ..y += dy / d * pull - v.y;
   }
 
+  /// The held ball, forgotten once it is gone (a new game, a tilt drain):
+  /// otherwise the hole would ignore every later ball.
+  PinballBall? get _holding {
+    if (_held case final h? when !ctx.balls.contains(h)) _held = null;
+    return _held;
+  }
+
+  /// `THole::Message(Reset)`: a held ball drops at once.
+  @override
+  void reset() {
+    if (_holding case final ball?) _release(ball);
+  }
+
   @override
   void checkBall(PinballBall ball) {
-    if (_held != null || !_onLayer(ball)) return;
+    if (_holding != null || !_onLayer(ball)) return;
     final dx = _circle.x - ball.x, dy = _circle.y - ball.y;
     if (dx * dx + dy * dy > captureRadius * captureRadius) return;
     _held = ball;
@@ -373,7 +397,7 @@ class HolePart extends TablePart {
   }
 
   void _drop() {
-    final ball = _held;
+    final ball = _holding;
     if (ball == null) return;
     final from = ball.z;
     const steps = 6;
@@ -386,6 +410,7 @@ class HolePart extends TablePart {
   }
 
   void _release(PinballBall ball) {
+    if (_held != ball || !ctx.balls.contains(ball)) return;
     _held = null;
     ball
       ..rampPlane = null
