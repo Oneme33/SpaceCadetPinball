@@ -1,26 +1,33 @@
 #!/usr/bin/env python3
-"""HD versions of the small sprites (lamps, arrows) of the HD set.
+"""HD versions of the lamps and the ball, which Real-ESRGAN gets wrong
+(a lamp of a few pixels comes out as a rectangle, the small balls square).
 
-Real-ESRGAN turns a lamp of a few pixels into a rectangle. So:
-- a round lamp (its opaque pixels fill the ellipse of its bounding box)
-  is drawn anew as a smooth ellipse, coloured from the centre outwards
-  with the original's own colours (its radial colour profile): the same
-  bright core and dark rim, now round at any size;
-- other small sprites (triangles, arrows) use xBRZ, made for pixel art.
+- A round lamp (its opaque pixels fill the ellipse of its bounding box) is
+  drawn anew as a smooth ellipse, coloured from the centre outwards with
+  the original's own colours (its radial colour profile): the same bright
+  core and dark rim, now round at any size.
+- Other lamps (triangles, arrows) use xBRZ, made for pixel art.
+- The ball keeps its own picture (highlight, reflection, rim) upscaled
+  smoothly, cut to an exact circle with a soft edge.
+Every other sprite keeps its ESRGAN version.
 
-    python3 tool/hd_small_sprites.py <src dir> <out dir> [max size] [scale]
+    python3 tool/hd_small_sprites.py <src dir> <out dir> <groups.json> [scale]
 
-Overwrites out/gN.png for every src/gN.png whose width and height are at
-most max size (default 16). Needs `pip install xbrz.py Pillow`.
+groups.json: {"lamps": [group, …], "balls": [group, …]}, written by
+tool/make_hd.dart. Needs `pip install xbrz.py Pillow`.
 """
+import json
 import math
 import os
 import sys
 
 import xbrz
-from PIL import Image
+from PIL import Image, ImageFilter
 
 BINS = 10
+
+# Lamps up to this size (pixels) are redrawn; larger ones keep ESRGAN.
+LAMP_LIMIT = 16
 
 
 def lamp(im, scale):
@@ -102,25 +109,56 @@ def lamp(im, scale):
     return out
 
 
+def ball(im, scale):
+    """The ball's own picture upscaled smoothly and cut to a circle."""
+    w, h = im.size
+    px = im.load()
+    opaque = [(x, y) for y in range(h) for x in range(w) if px[x, y][3] > 0]
+    x0 = min(p[0] for p in opaque); x1 = max(p[0] for p in opaque) + 1
+    y0 = min(p[1] for p in opaque); y1 = max(p[1] for p in opaque) + 1
+    cx, cy = (x0 + x1) / 2 * scale, (y0 + y1) / 2 * scale
+    r = min(x1 - x0, y1 - y0) / 2 * scale
+    # Transparent pixels carry the neighbouring colour (see make_hd's bleed),
+    # so the smooth scale does not darken the edge.
+    rgb = im.convert('RGB').resize((w * scale, h * scale), Image.BICUBIC)
+    rgb = rgb.filter(ImageFilter.UnsharpMask(radius=2, percent=90, threshold=2))
+    out = Image.new('RGBA', rgb.size, (0, 0, 0, 0))
+    o, c = out.load(), rgb.load()
+    for y in range(h * scale):
+        for x in range(w * scale):
+            a = max(0.0, min(1.0, r - math.hypot(x + .5 - cx, y + .5 - cy) + .5))
+            if a > 0:
+                p = c[x, y]
+                o[x, y] = (p[0], p[1], p[2], round(255 * a))
+    return out
+
+
 def main():
     src, dst = sys.argv[1], sys.argv[2]
-    limit = int(sys.argv[3]) if len(sys.argv) > 3 else 16
+    groups = json.load(open(sys.argv[3]))
     scale = int(sys.argv[4]) if len(sys.argv) > 4 else 4
-    lamps = pixel = 0
-    for name in sorted(os.listdir(src)):
-        if not name.endswith('.png'):
-            continue
-        im = Image.open(os.path.join(src, name)).convert('RGBA')
-        if max(im.size) > limit:
-            continue
-        out = lamp(im, scale)
-        if out is not None:
-            lamps += 1
-        else:
-            out = xbrz.scale_pillow(im, scale)
-            pixel += 1
-        out.save(os.path.join(dst, name))
-    print(f'Small sprites: {lamps} round lamps redrawn, {pixel} with xBRZ')
+    counts = {'round lamps': 0, 'other lamps (xBRZ)': 0, 'balls': 0}
+    for kind in ('lamps', 'balls'):
+        for g in groups[kind]:
+            path = os.path.join(src, f'g{g}.png')
+            if not os.path.exists(path):
+                continue
+            im = Image.open(path).convert('RGBA')
+            # Larger lamps (the big arrows) come out of ESRGAN well.
+            if kind == 'lamps' and max(im.size) > LAMP_LIMIT:
+                continue
+            if kind == 'balls':
+                out = ball(im, scale)
+                counts['balls'] += 1
+            else:
+                out = lamp(im, scale)
+                if out is not None:
+                    counts['round lamps'] += 1
+                else:
+                    out = xbrz.scale_pillow(im, scale)
+                    counts['other lamps (xBRZ)'] += 1
+            out.save(os.path.join(dst, f'g{g}.png'))
+    print('Redrawn: ' + ', '.join(f'{n} {k}' for k, n in counts.items()))
 
 
 if __name__ == '__main__':

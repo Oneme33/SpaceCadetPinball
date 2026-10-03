@@ -41,11 +41,12 @@ The pause menu switches between **Classic** (the original pixels) and
 exactly the same rectangles, so the game plays identically. The table and
 its parts use the general model (realesrgan-x4plus); the scoreboard's
 cartoon art uses the anime model, which keeps the logo and the cadet crisp.
-The lamps, sprites of a few pixels, are not left to ESRGAN, which turns them
-into rectangles: round lamps are redrawn as smooth ellipses coloured with
-their own radial colour profile (bright core, dark rim), other small sprites
-use xBRZ, made for pixel art (`tool/hd_small_sprites.py`, needs
-`pip install xbrz.py Pillow`).
+The small lamps and the ball are not left to ESRGAN, which turns a lamp of
+a few pixels into a rectangle and the small balls square: round lamps are
+redrawn as smooth ellipses with their own radial colour profile (bright
+core, dark rim), other small lamps use xBRZ (made for pixel art), and the
+ball keeps its own picture, smoothly scaled and cut to an exact circle
+(`tool/hd_small_sprites.py`, needs `pip install xbrz.py Pillow`).
 The score digits stay classic in both modes. Make the HD set from your installed originals:
 
 ```bash

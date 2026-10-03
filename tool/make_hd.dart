@@ -7,9 +7,10 @@
 //
 //   dart run tool/make_hd.dart --esrgan path/to/realesrgan-ncnn-vulkan [--python python3]
 //
-// Sprites of at most 16 pixels (the lamps) are done by
-// tool/hd_small_sprites.py instead: ESRGAN turns a lamp of a few pixels into a
-// rectangle; round lamps are redrawn round, the rest goes through xBRZ.
+// The lamps and the ball are done by tool/hd_small_sprites.py instead:
+// ESRGAN turns a lamp of a few pixels into a rectangle and the small balls
+// square. Round lamps are redrawn round, other lamps go through xBRZ, the
+// ball keeps its own picture, smoothly scaled and cut to a circle.
 //
 // Real-ESRGAN: https://github.com/xinntao/Real-ESRGAN (release v0.2.5.0,
 // realesrgan-ncnn-vulkan for your platform). The models folder must sit
@@ -19,6 +20,7 @@
 // before upscaling, so edges do not pick up a dark fringe; transparency
 // itself is upscaled by the model along with the colours.
 // ignore_for_file: avoid_print
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:image/image.dart' as img;
@@ -95,11 +97,27 @@ void main(List<String> args) {
   final python = args.contains('--python')
       ? args[args.indexOf('--python') + 1]
       : 'python3';
+  // Which groups are lamps (every state of a light) and the ball.
+  final groups = File('build/hd/groups.json')
+    ..writeAsStringSync(
+      jsonEncode({
+        'lamps': [
+          for (final c in data.components)
+            if (c.type == ComponentType.light)
+              for (var i = 0; i < c.states.length; i++)
+                data.stateGroup(c.group, i),
+        ],
+        'balls': [
+          for (var i = 0; i < data.ballSprites.length; i++)
+            data.stateGroup(data.ballGroup, i),
+        ],
+      }),
+    );
   final small = Process.runSync(python, [
     'tool/hd_small_sprites.py',
     src.path,
     out.path,
-    '16',
+    groups.path,
     '$scale',
   ]);
   if (small.exitCode == 0) {
