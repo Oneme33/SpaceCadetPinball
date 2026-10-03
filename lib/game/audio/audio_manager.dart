@@ -10,8 +10,11 @@ import 'package:flutter_soloud/flutter_soloud.dart';
 ///   number of voices is limited; the oldest gives way.
 /// - A missing file stays silent and is logged once. Nothing is ever
 ///   substituted for an original sound.
-/// - On the web, audio can only start after a user gesture, so [start] is
-///   called on the first input.
+/// - On the web, audio can only be heard after a user gesture: the engine
+///   loads during the splash and the page resumes it on the first tap
+///   (web/index.html). Sounds asked for while it is still loading play
+///   when it is ready, if they are recent: the start tune of a first game
+///   begun with the very first tap is not lost.
 class AudioManager {
   AudioManager({
     required this.soundFiles,
@@ -35,6 +38,13 @@ class AudioManager {
   final Set<int> _reportedMissing = {};
   Future<void>? _starting;
   bool _ready = false;
+
+  /// Sounds asked for while loading, with the time they were asked for.
+  final List<(int, Duration)> _waiting = [];
+  final Stopwatch _clock = Stopwatch()..start();
+
+  /// How long a sound asked for while loading may still start late.
+  static const lateLimit = Duration(milliseconds: 1500);
 
   /// Sound effects on.
   bool enabled = true;
@@ -85,6 +95,11 @@ class AudioManager {
     }
     // The effects are ready now; the music follows.
     _ready = true;
+    final now = _clock.elapsed;
+    for (final (group, at) in _waiting) {
+      if (now - at <= lateLimit) play(group);
+    }
+    _waiting.clear();
     for (final file in musicFiles) {
       try {
         final data = await _bundle.load('$assetDir/$file');
@@ -132,7 +147,14 @@ class AudioManager {
 
   /// Plays sound record [group]; null or unknown records are ignored.
   void play(int? group) {
-    if (group == null || !enabled || !_ready) return;
+    if (group == null || !enabled) return;
+    if (!_ready) {
+      // Capped: if the engine never comes up, this must not grow.
+      if (_starting != null && _waiting.length < 16) {
+        _waiting.add((group, _clock.elapsed));
+      }
+      return;
+    }
     final source = _loaded[group];
     if (source == null) {
       if (_reportedMissing.add(group)) {
@@ -146,6 +168,7 @@ class AudioManager {
   /// Stops the sound effects, e.g. on pause; the music has its own
   /// controls.
   void stopAll() {
+    _waiting.clear();
     if (_ready) _backend.stopEffects();
   }
 }

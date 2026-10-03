@@ -70,6 +70,16 @@ void main() {
     expect(backend.played, isEmpty);
   });
 
+  test('a sound asked for while loading plays once ready', () async {
+    // The web: the first tap starts the engine and a game at once, and the
+    // game's start tune must not be lost.
+    final starting = audio.start();
+    audio.play(10);
+    expect(backend.played, isEmpty);
+    await starting;
+    expect(backend.played, ['SOUND1.WAV']);
+  });
+
   test('plays loaded sounds with a limited number of voices', () async {
     await audio.start();
     expect(backend.voices, AudioManager.voices);

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
@@ -345,8 +346,12 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
     audio
       ..enabled = settings.sound
       ..musicEnabled = settings.music;
-    // Apps may load their sounds right away; browsers only after a tap.
-    if (!kIsWeb) {
+    // Apps load their sounds before the game shows. Browsers load them
+    // alongside, without holding up the splash: they only play after the
+    // first tap anyway, which resumes the engine (web/index.html).
+    if (kIsWeb) {
+      unawaited(audio.start());
+    } else {
       loading.value = (0.82, 'Loading sounds');
       await audio.start();
     }
