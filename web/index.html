@@ -87,6 +87,46 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
+  <!-- iOS: sound in a browser game. Must run before the audio engine.
+       - Safari mutes Web Audio while the phone is on silent, unless the page
+         declares itself a player (Audio Session API, iOS 16.4+).
+       - iOS only starts audio inside a tap. The engine makes its audio
+         context after loading, so every tap resumes any context that is
+         still suspended. -->
+  <script>
+    (function () {
+      try {
+        if (navigator.audioSession) navigator.audioSession.type = 'playback';
+      } catch (e) {}
+      // Also on window, to check from the console.
+      var contexts = window.audioContexts = [];
+      ['AudioContext', 'webkitAudioContext'].forEach(function (name) {
+        var Base = window[name];
+        if (!Base) return;
+        var Tracked = function () {
+          var ctx = new (Function.prototype.bind.apply(Base, [null].concat([].slice.call(arguments))))();
+          contexts.push(ctx);
+          return ctx;
+        };
+        Tracked.prototype = Base.prototype;
+        window[name] = Tracked;
+      });
+      function unlock() {
+        contexts.forEach(function (ctx) {
+          // Suspended, or interrupted by iOS (a call, another app); never closed.
+          if ((ctx.state === 'suspended' || ctx.state === 'interrupted') && ctx.resume) {
+            ctx.resume().catch(function () {});
+          }
+        });
+      }
+      ['touchend', 'pointerup', 'click', 'keydown'].forEach(function (type) {
+        document.addEventListener(type, unlock, { capture: true, passive: true });
+      });
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) unlock();
+      });
+    })();
+  </script>
   <!-- Audio engine (flutter_soloud): picks the right WASM build. -->
   <script src="assets/packages/flutter_soloud/web/init_soloud.js" defer></script>
   <script src="flutter_bootstrap.js" async></script>
