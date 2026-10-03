@@ -5,7 +5,11 @@
 // which keeps its logo and the cadet crisp. Score digits are not used in
 // HD: they stay classic.
 //
-//   dart run tool/make_hd.dart --esrgan path/to/realesrgan-ncnn-vulkan
+//   dart run tool/make_hd.dart --esrgan path/to/realesrgan-ncnn-vulkan [--python python3]
+//
+// Sprites of at most 16 pixels (the lamps) are scaled with xBRZ instead
+// (tool/hd_small_sprites.py): ESRGAN turns a lamp of a few pixels into a
+// rectangle, xBRZ keeps it round.
 //
 // Real-ESRGAN: https://github.com/xinntao/Real-ESRGAN (release v0.2.5.0,
 // realesrgan-ncnn-vulkan for your platform). The models folder must sit
@@ -84,6 +88,26 @@ void main(List<String> args) {
       '${src.path}/g$g.png',
       '${out.path}/g$g.png',
       'realesrgan-x4plus-anime',
+    );
+  }
+
+  // Lamps of a few pixels: xBRZ rounds them, ESRGAN makes rectangles.
+  final python = args.contains('--python')
+      ? args[args.indexOf('--python') + 1]
+      : 'python3';
+  final small = Process.runSync(python, [
+    'tool/hd_small_sprites.py',
+    src.path,
+    out.path,
+    '16',
+    '$scale',
+  ]);
+  if (small.exitCode == 0) {
+    stdout.write(small.stdout);
+  } else {
+    stderr.writeln(
+      'Small sprites stay ESRGAN (needs `pip install xbrz.py Pillow`): '
+      '${small.stderr}',
     );
   }
 
