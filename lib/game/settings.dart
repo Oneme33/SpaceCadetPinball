@@ -1,5 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'ui/screen_layout.dart';
+
 /// The player's settings, kept between sessions. Every read and write is
 /// guarded: without storage (private browsing, tests) the defaults apply.
 class Settings {
@@ -53,6 +55,27 @@ class Settings {
 
   bool get haptics => _haptics;
   set haptics(bool v) => _set('haptics', _haptics = v);
+
+  /// How close the phone view is.
+  PhoneZoom get zoom {
+    try {
+      final name = _prefs?.getString('phone_zoom');
+      return PhoneZoom.values.firstWhere(
+        (z) => z.name == name,
+        orElse: () => PhoneZoom.close,
+      );
+    } on Object {
+      return PhoneZoom.close;
+    }
+  }
+
+  set zoom(PhoneZoom v) {
+    try {
+      _prefs?.setString('phone_zoom', v.name);
+    } on Object {
+      // Not stored; the value still applies for this session.
+    }
+  }
 
   /// Easy mode: longer flippers, the centre post up, kickbacks open.
   bool get easy => _easy;

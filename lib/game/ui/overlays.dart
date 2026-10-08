@@ -399,6 +399,13 @@ class _PauseMenuState extends State<_PauseMenu> {
             padding: EdgeInsets.fromLTRB(4, 0, 4, 4),
             child: Text('HD graphics not installed', style: _small),
           ),
+        // How much of the table the phone view shows.
+        if (game.layoutOnScreen.mode == LayoutMode.phone)
+          _Row(
+            label: 'Zoom',
+            value: game.zoom.label,
+            onTap: () => setState(() => game.setZoom(game.zoom.next)),
+          ),
         Row(
           children: [
             Expanded(

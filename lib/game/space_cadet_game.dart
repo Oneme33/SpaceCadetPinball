@@ -14,6 +14,7 @@ import 'package:flutter/widgets.dart' show KeyEventResult;
 import '../dat/pinball_data.dart';
 import 'assets/original_assets.dart';
 import 'audio/audio_manager.dart';
+import 'audio/audio_session.dart';
 import 'physics/ball.dart';
 import 'debug/debug_layer.dart';
 import 'game_config.dart';
@@ -105,6 +106,19 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
   /// Where the phone view is over the playfield (see [ScreenLayout.pan]).
   double _pan = 0.5;
 
+  /// How close the phone view is; from the settings once they are loaded.
+  PhoneZoom _zoom = PhoneZoom.close;
+  PhoneZoom get zoom => _zoom;
+
+  void _relayout() =>
+      layoutOnScreen = ScreenLayout.compute(_canvas, pan: _pan, zoom: _zoom);
+
+  void setZoom(PhoneZoom zoom) {
+    settings.zoom = _zoom = zoom;
+    _relayout();
+    _applyLayout();
+  }
+
   /// How fast the phone view catches up with the ball: the time constant
   /// of its smoothing, in seconds.
   static const panLag = 0.12;
@@ -168,6 +182,7 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
   void setMusic(bool on) {
     settings.music = on;
     audio.musicEnabled = on;
+    setAudioMixing(!on);
   }
 
   /// Set by the first game: the original starts the music with a game
@@ -234,6 +249,9 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
     _applyLayout();
 
     settings = await Settings.load();
+    _zoom = settings.zoom;
+    _relayout();
+    _applyLayout();
     loading.value = (0.1, 'Loading the table');
     final originals = this.originals = await OriginalAssets.load();
     loading.value = (0.55, 'Building the table');
@@ -346,6 +364,7 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
     audio
       ..enabled = settings.sound
       ..musicEnabled = settings.music;
+    setAudioMixing(!settings.music);
     // Apps load their sounds before the game shows. Browsers load them
     // alongside, without holding up the splash: they only play after the
     // first tap anyway, which resumes the engine (web/index.html).
@@ -415,7 +434,7 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
     _canvas = Size(size.x, size.y);
-    layoutOnScreen = ScreenLayout.compute(_canvas, pan: _pan);
+    _relayout();
     _applyLayout();
     if (isLoaded) _showHud();
   }
@@ -440,7 +459,7 @@ class SpaceCadetGame extends FlameGame with KeyboardEvents {
     final next = _pan + (target - _pan) * k;
     if ((next - _pan).abs() < 1e-5) return;
     _pan = next;
-    layoutOnScreen = ScreenLayout.compute(_canvas, pan: _pan);
+    _relayout();
     _applyLayout();
   }
 

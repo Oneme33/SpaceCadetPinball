@@ -47,6 +47,37 @@ void main() {
     expect(l.panToShow(play.right + 100, 0.5), 1.0, reason: 'clamped');
   });
 
+  test('farther zoom levels show more of the table, never distorted', () {
+    final close = ScreenLayout.compute(phone);
+    final medium = ScreenLayout.compute(phone, zoom: PhoneZoom.medium);
+    final whole = ScreenLayout.compute(phone, zoom: PhoneZoom.whole);
+    for (final l in [medium, whole]) {
+      expect(l.mode, LayoutMode.phone);
+      expectUndistorted(l.tableView, l.tableSource);
+      // Centred in the space under the bar.
+      expect(
+        l.tableView.center.dy,
+        closeTo((ScreenLayout.hudHeight + phone.height) / 2, 1e-9),
+      );
+    }
+    expect(medium.tableScale, lessThan(close.tableScale));
+    expect(medium.tableSource.width, greaterThan(close.tableSource.width));
+    expect(medium.tableScale * play.width, closeTo(phone.width * 1.2, 1e-9));
+    expect(medium.panRange, greaterThan(0), reason: 'still follows the ball');
+    expect(whole.tableSource, play, reason: 'the whole table');
+    expect(whole.panRange, 0);
+    expect(whole.tableView.width, closeTo(phone.width, 1e-9));
+  });
+
+  test('a zoom level is never closer than the full height', () {
+    // A wide tablet in portrait: 1.2 × the whole width would be taller
+    // than the screen.
+    const tablet = Size(760, 1000);
+    final close = ScreenLayout.compute(tablet);
+    final medium = ScreenLayout.compute(tablet, zoom: PhoneZoom.medium);
+    expect(medium.tableScale, closeTo(close.tableScale, 1e-9));
+  });
+
   test('nearly square portrait falls back to the original layout', () {
     final l = ScreenLayout.compute(const Size(500, 560));
     expect(l.mode, LayoutMode.landscape);

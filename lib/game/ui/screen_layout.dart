@@ -14,6 +14,23 @@ enum LayoutMode {
   phone,
 }
 
+/// How close the phone view is: [close] fills the height of the screen
+/// (the view follows the ball sideways); the others show more of the
+/// table, as a share of the scale at which its whole width fits.
+enum PhoneZoom {
+  close(null, 'Close'),
+  medium(1.2, 'Medium'),
+  whole(1.0, 'Whole table');
+
+  const PhoneZoom(this.factor, this.label);
+
+  /// Scale relative to the whole width; null: the full height.
+  final double? factor;
+  final String label;
+
+  PhoneZoom get next => values[(index + 1) % values.length];
+}
+
 /// Where the playfield and the scoreboard go on the device, in canvas
 /// pixels, and which part of the original 600 × 416 screen each shows.
 ///
@@ -45,14 +62,24 @@ class ScreenLayout {
   double get tableScale => tableView.width / tableSource.width;
 
   /// [pan] places the phone view over the playfield: 0 at its left edge,
-  /// 1 at its right edge (the plunger lane).
-  static ScreenLayout compute(Size canvas, {double pan = 0.5}) {
+  /// 1 at its right edge (the plunger lane). [zoom] is how close it is.
+  static ScreenLayout compute(
+    Size canvas, {
+    double pan = 0.5,
+    PhoneZoom zoom = PhoneZoom.close,
+  }) {
     final w = canvas.width, h = canvas.height;
     if (w >= h * maxPhoneAspect || h <= hudHeight) return _landscape(canvas);
 
     const play = GameConfig.playfieldRect;
     final area = Rect.fromLTRB(0, hudHeight, w, h);
-    final scale = area.height / play.height;
+    final fullHeight = area.height / play.height;
+    final factor = zoom.factor;
+    // Never closer than the full height: then the table would be cut off
+    // at the top and bottom too.
+    final scale = factor == null
+        ? fullHeight
+        : math.min(fullHeight, factor * _fit(play.size, area.size));
     final visible = w / scale;
     if (visible >= play.width) {
       // Wide enough for the whole playfield at full height: centred.
@@ -68,9 +95,16 @@ class ScreenLayout {
       );
     }
     final range = play.width - visible;
+    final height = play.height * scale;
     return ScreenLayout._(
       mode: LayoutMode.phone,
-      tableView: area,
+      // Below the full height the table sits in the middle of the area.
+      tableView: Rect.fromLTWH(
+        0,
+        area.top + (area.height - height) / 2,
+        w,
+        height,
+      ),
       tableSource: Rect.fromLTWH(
         play.left + range * pan.clamp(0.0, 1.0),
         play.top,

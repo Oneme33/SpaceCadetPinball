@@ -103,15 +103,26 @@
   -->
   <!-- iOS: sound in a browser game. Must run before the audio engine.
        - Safari mutes Web Audio while the phone is on silent, unless the page
-         declares itself a player (Audio Session API, iOS 16.4+).
+         declares itself a player (Audio Session API, iOS 16.4+). A player
+         also stops other apps' audio, so only while the game's music is on.
        - iOS only starts audio inside a tap. The engine makes its audio
          context after loading, so every tap resumes any context that is
          still suspended. -->
   <script>
     (function () {
-      try {
-        if (navigator.audioSession) navigator.audioSession.type = 'playback';
-      } catch (e) {}
+      // "playback" stops other apps' audio (your own music), "ambient"
+      // plays along with it but follows the silent switch. Playback only
+      // while the game's music is on; the game switches it with the Music
+      // setting (lib/game/audio/audio_session_web.dart), and the saved
+      // setting applies from the start.
+      window.spaceCadetAudioSession = function (type) {
+        try {
+          if (navigator.audioSession) navigator.audioSession.type = type;
+        } catch (e) {}
+      };
+      var music = true;
+      try { music = localStorage.getItem('flutter.music') !== 'false'; } catch (e) {}
+      window.spaceCadetAudioSession(music ? 'playback' : 'ambient');
       // Also on window, to check from the console.
       var contexts = window.audioContexts = [];
       ['AudioContext', 'webkitAudioContext'].forEach(function (name) {
